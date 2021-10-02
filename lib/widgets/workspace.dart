@@ -64,6 +64,14 @@ class _WorkspaceState extends State<Workspace> {
     setState(() {
       _offset += details.localFocalPoint - _localFocalPoint;
       _localFocalPoint = details.localFocalPoint;
+
+      _scale -= details.scale / 100;
+
+      if (_scale < 0.1) {
+        _scale = 0.1;
+      } else if (_scale > 20) {
+        _scale = 20;
+      }
     });
   }
 
