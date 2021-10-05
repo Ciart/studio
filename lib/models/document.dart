@@ -1,36 +1,109 @@
-import 'dart:typed_data';
 import 'dart:ui';
 
-import 'layer.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
-class Document {
-  int _width;
+import 'layers/layer.dart';
+import 'layers/pixel_layer.dart';
+
+class Document extends ChangeNotifier {
+  /// documentProvider에서 사용하는 식별자
+  final String id;
+
+  late String _name;
+  String get name => _name;
+
+  late int _width;
   int get width => _width;
 
-  int _height;
+  late int _height;
   int get height => _height;
 
   List<Layer> layers = [];
 
-  Image? image;
+  Picture? picture;
 
-  var pixels = Uint8List(400 * 300 * 4);
+  bool _isRefreshed = false;
 
-  Document({required int width, required int height})
-      : _width = width,
-        _height = height {
-    for (int i = 0; i < pixels.length; i++) {
-      pixels[i] = 255;
+  late Ticker _ticker;
 
-      if (i % 4 == 2) {
-        pixels[i] = 0;
-      }
-    }
+  Document(this.id);
 
-    decodeImageFromPixels(pixels, 100, 100, PixelFormat.rgba8888, callback);
+  void init({required String name, required int width, required int height}) {
+    _name = name;
+    _width = width;
+    _height = height;
+
+    layers.add(
+      PixelLayer(document: this, name: 'Layer 1', width: width, height: height),
+    );
+    layers.add(
+      PixelLayer(document: this, name: 'Layer 2', width: width, height: height),
+    );
+    layers.add(
+      PixelLayer(document: this, name: 'Layer 3', width: width, height: height),
+    );
+
+    _ticker = Ticker(
+      (duration) async {
+        if (!_isRefreshed) {
+          _isRefreshed = true;
+          await render();
+        }
+      },
+    )..start();
   }
 
-  void callback(image) {
-    this.image = image;
+  @override
+  void dispose() {
+    // super.dispose();
+
+    // _ticker.dispose();
+  }
+
+  void refresh() {
+    _isRefreshed = false;
+  }
+
+  setPixel(Color color, int x, int y) {
+    (layers[0] as PixelLayer).setPixel(color, x, y);
+  }
+
+  void updateLayerIndex(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+
+    final layer = layers.removeAt(oldIndex);
+    layers.insert(newIndex, layer);
+
+    notifyListeners();
+
+    render();
+  }
+
+  Future<void> render() async {
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    for (int i = layers.length - 1; i >= 0; i--) {
+      final layer = layers[i];
+
+      if (!layer.isVisible) {
+        continue;
+      }
+
+      final layerImage = await layer.image;
+
+      if (layerImage == null) {
+        continue;
+      }
+
+      canvas.drawImage(layerImage, Offset.zero, Paint());
+    }
+
+    picture = recorder.endRecording();
+
+    notifyListeners();
   }
 }
