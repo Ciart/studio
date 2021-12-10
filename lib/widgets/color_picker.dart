@@ -29,20 +29,23 @@ class _ColorPickerState extends State<ColorPicker> {
             ),
             Text(primaryColor.toString()),
             Slider(
-                min: 0,
-                max: 255,
-                value: primaryColor.red.toDouble(),
-                onChanged: _onChangedRedSlider),
+              min: 0,
+              max: 255,
+              value: primaryColor.red.toDouble(),
+              onChanged: _onChangedRedSlider,
+            ),
             Slider(
-                min: 0,
-                max: 255,
-                value: primaryColor.green.toDouble(),
-                onChanged: _onChangedGreenSlider),
+              min: 0,
+              max: 255,
+              value: primaryColor.green.toDouble(),
+              onChanged: _onChangedGreenSlider,
+            ),
             Slider(
-                min: 0,
-                max: 255,
-                value: primaryColor.blue.toDouble(),
-                onChanged: _onChangedBlueSlider)
+              min: 0,
+              max: 255,
+              value: primaryColor.blue.toDouble(),
+              onChanged: _onChangedBlueSlider,
+            )
           ],
         );
       }),

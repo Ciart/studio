@@ -13,38 +13,52 @@ class MenuBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       setApplicationMenu([
-        Submenu(label: 'File', children: [
-          MenuItem(
+        Submenu(
+          label: 'File',
+          children: [
+            MenuItem(
               label: 'New File',
               enabled: true,
               shortcut: LogicalKeySet(
-                  LogicalKeyboardKey.meta, LogicalKeyboardKey.keyN),
+                LogicalKeyboardKey.meta,
+                LogicalKeyboardKey.keyN,
+              ),
               onClicked: () async {
                 await showDialog(
-                    context: context,
-                    builder: (context) => SimpleDialog(
-                          title: const Text('New File'),
-                          children: [
-                            TextField(),
-                            SimpleDialogOption(
-                              onPressed: () {
-                                Navigator.pop(context, '');
-                              },
-                              child: const Text('확인'),
-                            )
-                          ],
-                        ));
-              }),
-          MenuDivider(),
-          Submenu(label: 'Presets', children: [
-            MenuItem(
-                label: 'Red',
-                enabled: true,
-                shortcut: LogicalKeySet(LogicalKeyboardKey.meta,
-                    LogicalKeyboardKey.shift, LogicalKeyboardKey.keyR),
-                onClicked: () {}),
-          ])
-        ]),
+                  context: context,
+                  builder: (context) => SimpleDialog(
+                    title: const Text('New File'),
+                    children: [
+                      TextField(),
+                      SimpleDialogOption(
+                        onPressed: () {
+                          Navigator.pop(context, '');
+                        },
+                        child: const Text('확인'),
+                      )
+                    ],
+                  ),
+                );
+              },
+            ),
+            MenuDivider(),
+            Submenu(
+              label: 'Presets',
+              children: [
+                MenuItem(
+                  label: 'Red',
+                  enabled: true,
+                  shortcut: LogicalKeySet(
+                    LogicalKeyboardKey.meta,
+                    LogicalKeyboardKey.shift,
+                    LogicalKeyboardKey.keyR,
+                  ),
+                  onClicked: () {},
+                ),
+              ],
+            )
+          ],
+        ),
       ]);
     }
 

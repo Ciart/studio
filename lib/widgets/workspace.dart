@@ -82,31 +82,38 @@ class _WorkspaceState extends State<Workspace> {
   @override
   Widget build(BuildContext context) {
     return Listener(
-        onPointerMove: _onPointerMove,
-        onPointerSignal: _onPointerSignal,
-        child: MouseRegion(
-          onHover: _onHover,
-          child: GestureDetector(
-              onScaleStart: _onScaleStart,
-              onScaleUpdate: _onScaleUpdate,
-              child: ClipRect(
-                  child: Obx(
-                () => CustomPaint(
-                  painter: _WorkspacePainter(
-                      coreController.document.value.image,
-                      _offset,
-                      _scale,
-                      _updateCenter),
+      onPointerMove: _onPointerMove,
+      onPointerSignal: _onPointerSignal,
+      child: MouseRegion(
+        onHover: _onHover,
+        child: GestureDetector(
+          onScaleStart: _onScaleStart,
+          onScaleUpdate: _onScaleUpdate,
+          child: ClipRect(
+            child: Obx(
+              () => CustomPaint(
+                painter: _WorkspacePainter(
+                  coreController.document.value.image,
+                  _offset,
+                  _scale,
+                  _updateCenter,
                 ),
-              ))),
-        ));
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
 class _WorkspacePainter extends CustomPainter {
   const _WorkspacePainter(
-      this.image, this.offset, this.scale, this.updateCenter)
-      : super();
+    this.image,
+    this.offset,
+    this.scale,
+    this.updateCenter,
+  ) : super();
 
   final ui.Image? image;
   final Offset offset;
@@ -123,13 +130,15 @@ class _WorkspacePainter extends CustomPainter {
 
     if (image != null) {
       canvas.drawImageRect(
-          image!,
-          Rect.fromLTWH(0, 0, 100, 100),
-          Rect.fromCenter(
-              center: center + offset,
-              width: (image?.width ?? 0) * scale,
-              height: (image?.height ?? 0) * scale),
-          paint);
+        image!,
+        Rect.fromLTWH(0, 0, 100, 100),
+        Rect.fromCenter(
+          center: center + offset,
+          width: (image?.width ?? 0) * scale,
+          height: (image?.height ?? 0) * scale,
+        ),
+        paint,
+      );
     }
   }
 

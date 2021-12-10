@@ -15,21 +15,23 @@ class App extends StatelessWidget {
     Get.put(DocumentController());
 
     return MaterialApp(
-        title: 'doter',
-        color: const Color(0xFFFFFFFF),
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(
-            body: MenuBar(
+      title: 'doter',
+      color: const Color(0xFFFFFFFF),
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: MenuBar(
           child: Column(
             children: [
               Expanded(
                 child: Row(
                   children: [
                     Flexible(
-                        flex: 4,
-                        child: ConstrainedBox(
-                            constraints: BoxConstraints.expand(),
-                            child: Workspace())),
+                      flex: 4,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints.expand(),
+                        child: Workspace(),
+                      ),
+                    ),
                     Flexible(flex: 1, child: ColorPicker())
                   ],
                 ),
@@ -37,6 +39,8 @@ class App extends StatelessWidget {
               StatusBar()
             ],
           ),
-        )));
+        ),
+      ),
+    );
   }
 }
