@@ -1,3 +1,4 @@
+import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:doter/controllers/core_controller.dart';
 import 'package:doter/controllers/document_controller.dart';
 import 'package:doter/widgets/color_picker.dart';
@@ -19,26 +20,39 @@ class App extends StatelessWidget {
       color: const Color(0xFFFFFFFF),
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        body: MenuBar(
-          child: Column(
-            children: [
-              Expanded(
-                child: Row(
+        body: Column(
+          children: [
+            WindowTitleBarBox(
+              child: MoveWindow(
+                child: Container(
+                  color: Color(0xffff0000),
+                ),
+              ),
+            ),
+            Expanded(
+              child: MenuBar(
+                child: Column(
                   children: [
-                    Flexible(
-                      flex: 4,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints.expand(),
-                        child: Workspace(),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            flex: 4,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints.expand(),
+                              child: Workspace(),
+                            ),
+                          ),
+                          Flexible(flex: 1, child: ColorPicker())
+                        ],
                       ),
                     ),
-                    Flexible(flex: 1, child: ColorPicker())
+                    StatusBar()
                   ],
                 ),
               ),
-              StatusBar()
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
