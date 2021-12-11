@@ -1,9 +1,9 @@
-import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:doter/controllers/core_controller.dart';
 import 'package:doter/controllers/document_controller.dart';
 import 'package:doter/widgets/color_picker.dart';
 import 'package:doter/widgets/menu_bar.dart';
 import 'package:doter/widgets/status_bar.dart';
+import 'package:doter/widgets/title_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -22,13 +22,7 @@ class App extends StatelessWidget {
       home: Scaffold(
         body: Column(
           children: [
-            WindowTitleBarBox(
-              child: MoveWindow(
-                child: Container(
-                  color: Color(0xffff0000),
-                ),
-              ),
-            ),
+            TitleBar(),
             Expanded(
               child: MenuBar(
                 child: Column(
