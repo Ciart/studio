@@ -29,12 +29,12 @@ dependencies:
   cupertino_icons: ^1.0.2
   menubar:
     git:
-      url: git://github.com/google/flutter-desktop-embedding.git
+      url: https://github.com/google/flutter-desktop-embedding
       path: plugins/menubar
       ref: 1d9232e2c172992b74ba538851ffea26a0cb2640
   nabi:
     git:
-      url: git://github.com/Ci-art/nabi.git
+      url: https://github.com/Ci-art/nabi
       ref: develop
   flutter_riverpod: ^1.0.1
   bitsdojo_window: ^0.1.1+1
