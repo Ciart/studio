@@ -52,7 +52,11 @@ class _LayerPanelState extends ConsumerState<LayerPanel> {
                     return Container();
                   }
 
-                  return UiImage(image: snapshot.data!);
+                  return UiImage(
+                    image: snapshot.data!,
+                    width: 32,
+                    height: 32,
+                  );
                 },
               ),
               Text(document.layers[index].name),

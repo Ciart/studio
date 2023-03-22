@@ -24,6 +24,7 @@ class Document extends ChangeNotifier {
   Picture? picture;
 
   bool _isRefreshed = false;
+  bool _isDoing = false;
 
   late Ticker _ticker;
 
@@ -48,7 +49,12 @@ class Document extends ChangeNotifier {
       (duration) async {
         if (!_isRefreshed) {
           _isRefreshed = true;
-          await render();
+
+          if (!_isDoing) {
+            _isDoing = true;
+            await render();
+            _isDoing = false;
+          }
         }
       },
     )..start();

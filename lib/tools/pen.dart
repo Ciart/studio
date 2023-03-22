@@ -9,7 +9,7 @@ class Pen extends Tool {
       : this.size = size,
         super(ToolId.pen, 'Pen');
 
-  final int size;
+  int size;
 
   Offset _prevPosition = Offset.zero;
 

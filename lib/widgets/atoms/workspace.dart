@@ -97,22 +97,68 @@ class _WorkspaceState extends ConsumerState<Workspace> {
   }
 
   void _onPointerSignal(PointerSignalEvent event) {
-    if (event is PointerScrollEvent) {
-      setState(() {
-        const minScale = 0.5;
-        const maxScale = 5.0;
+    // if (event is PointerScrollEvent) {
+    //   setState(() {
+    //     const minScale = 0.5;
+    //     const maxScale = 5.0;
 
-        _rawScale -= event.scrollDelta.dy / 100;
+    //     _rawScale -= event.scrollDelta.dy / 100;
 
-        if (_rawScale < minScale) {
-          _rawScale = minScale;
-        } else if (_rawScale > maxScale) {
-          _rawScale = maxScale;
-        }
+    //     if (_rawScale < minScale) {
+    //       _rawScale = minScale;
+    //     } else if (_rawScale > maxScale) {
+    //       _rawScale = maxScale;
+    //     }
 
-        _scale = _rawScale * _rawScale * _rawScale;
-      });
-    }
+    //     _scale = _rawScale * _rawScale * _rawScale;
+    //   });
+    // }
+  }
+
+  var _zoom = 1.0;
+
+  void _onPointerPanZoomStart(PointerPanZoomStartEvent event) {
+    setState(() {
+      _zoom = 1.0;
+    });
+  }
+
+  void _onPointerPanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    setState(() {
+      _offset += event.panDelta;
+
+      const minScale = 0.5;
+      const maxScale = 5.0;
+
+      _zoom = event.scale;
+
+      var a = _rawScale * _zoom;
+
+      if (a < minScale) {
+        a = minScale;
+      } else if (a > maxScale) {
+        a = maxScale;
+      }
+
+      _scale = a * a * a;
+    });
+  }
+
+  void _onPointerPanZoomEnd(PointerPanZoomEndEvent event) {
+    setState(() {
+      const minScale = 0.5;
+      const maxScale = 5.0;
+
+      _rawScale *= _zoom;
+
+      if (_rawScale < minScale) {
+        _rawScale = minScale;
+      } else if (_rawScale > maxScale) {
+        _rawScale = maxScale;
+      }
+
+      _scale = _rawScale * _rawScale * _rawScale;
+    });
   }
 
   void _updateOrigin(Offset origin) {
@@ -129,6 +175,9 @@ class _WorkspaceState extends ConsumerState<Workspace> {
         onPointerMove: _onPointerMove,
         onPointerUp: _onPointerUp,
         onPointerSignal: _onPointerSignal,
+        onPointerPanZoomStart: _onPointerPanZoomStart,
+        onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
+        onPointerPanZoomEnd: _onPointerPanZoomEnd,
         child: RepaintBoundary(
           child: ClipRect(
             child: CustomPaint(

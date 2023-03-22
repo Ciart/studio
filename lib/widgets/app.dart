@@ -24,7 +24,7 @@ class App extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(brightness: Brightness.light, accentColor: Colors.blue),
       home: NavigationView(
-        appBar: NavigationAppBar(title: const Text(title), actions: TitleBar()),
+        // appBar: NavigationAppBar(title: const Text(title), actions: TitleBar()),
         content: Column(
           children: [
             TitleBar(),

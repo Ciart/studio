@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:doter/providers/document.dart';
 import 'package:doter/providers/ui.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -14,16 +16,29 @@ class NewDocumentDialog extends ConsumerStatefulWidget {
 }
 
 class _NewDocumentDialogState extends ConsumerState<NewDocumentDialog> {
-  String _documentName = '';
+  late TextEditingController _nameController;
+  late TextEditingController _widthController;
+  late TextEditingController _heightController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _nameController = TextEditingController(text: "무제");
+    _widthController = TextEditingController(text: "128");
+    _heightController = TextEditingController(text: "128");
+  }
 
   @override
   Widget build(BuildContext context) {
     return ContentDialog(
       title: const Text('New Document'),
-      content: TextBox(
-        onChanged: (value) => setState(() {
-          _documentName = value;
-        }),
+      content: Column(
+        children: [
+          TextBox(header: "이름", controller: _nameController),
+          TextBox(header: "너비", controller: _widthController),
+          TextBox(header: "높이", controller: _heightController),
+        ],
       ),
       actions: [
         Button(
@@ -31,13 +46,17 @@ class _NewDocumentDialogState extends ConsumerState<NewDocumentDialog> {
             var id = Uuid().v4();
 
             var document = ref.watch(documentProvider(id));
-            document.init(name: _documentName, width: 32, height: 32);
+            document.init(
+              name: _nameController.text,
+              width: int.parse(_widthController.text),
+              height: int.parse(_heightController.text),
+            );
 
             ref.watch(layoutProvider).addChild(
                   'workspace',
                   LayoutWidget(
                     name: 'workspacePanel',
-                    title: _documentName,
+                    title: _nameController.text,
                     arguments: id,
                   ),
                 );

@@ -16,36 +16,63 @@ class ColorPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        var size = min(constraints.maxWidth, constraints.maxHeight);
-        var rectSize = sqrt(pow(size - 16 * 2, 2) / 2) - 8;
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                var size = min(constraints.maxWidth, constraints.maxHeight);
+                var rectSize = sqrt(pow(size - 16 * 2, 2) / 2) - 8;
 
-        return Stack(
-          children: [
-            Center(
-              child: SizedBox(
-                width: size,
-                height: size,
-                child: HueRing(
-                  color: color,
-                  onChange: onChange,
-                ),
-              ),
+                return Stack(
+                  children: [
+                    Center(
+                      child: SizedBox(
+                        width: size,
+                        height: size,
+                        child: HueRing(
+                          color: color,
+                          onChange: onChange,
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: SizedBox(
+                        width: rectSize,
+                        height: rectSize,
+                        child: GradientBox(
+                          color: color,
+                          onChange: onChange,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
-            Center(
-              child: SizedBox(
-                width: rectSize,
-                height: rectSize,
-                child: GradientBox(
-                  color: color,
-                  onChange: onChange,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+          Slider(
+            min: 0,
+            max: 360,
+            value: color.hue,
+            onChanged: (value) => onChange(color.withHue(value)),
+          ),
+          Slider(
+            min: 0,
+            max: 1,
+            value: color.saturation,
+            onChanged: (value) => onChange(color.withSaturation(value)),
+          ),
+          Slider(
+            min: 0,
+            max: 1,
+            value: color.value,
+            onChanged: (value) => onChange(color.withValue(value)),
+          ),
+        ],
+      ),
     );
   }
 }

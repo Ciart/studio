@@ -17,7 +17,12 @@ class PenProperty extends ConsumerWidget {
 
     return Row(
       children: [
-        Slider(value: tool.size.toDouble(), max: 100, onChanged: (value) {})
+        Slider(
+          value: tool.size.toDouble(),
+          min: 1,
+          max: 10,
+          onChanged: (value) => tool.size = value.toInt(),
+        )
       ],
     );
   }

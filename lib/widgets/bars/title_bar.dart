@@ -18,43 +18,48 @@ class TitleBar extends ConsumerWidget {
     final document = ref.watch(focusDocumentProvider);
 
     return WindowTitleBarBox(
-        child: Padding(
-      padding: EdgeInsets.only(left: Platform.isMacOS ? 68 : 0),
-      child: Row(
+      child: Column(
         children: [
-          Button(
-            child: Text('New File'),
-            onPressed: () async {
-              await showDialog(
-                context: context,
-                builder: (context) => NewDocumentDialog(),
-              );
-            },
-          ),
-          Button(
-            child: Text('Undo'),
-            onPressed: () {
-              //document?.undo();
-            },
-          ),
-          Button(
-            child: Text('Redo'),
-            onPressed: () {
-              //document?.redo();
-            },
-          ),
-          Expanded(
-            child: MoveWindow(),
-          ),
-          Row(
-            children: [
-              MinimizeWindowButton(colors: windowButtonColors),
-              MaximizeWindowButton(colors: windowButtonColors),
-              CloseWindowButton(colors: windowButtonColors),
-            ],
+          Padding(
+            padding: EdgeInsets.only(left: Platform.isMacOS ? 68 : 0),
+            child: Row(
+              children: [
+                Button(
+                  child: Text('New File'),
+                  onPressed: () async {
+                    await showDialog(
+                      context: context,
+                      builder: (context) => NewDocumentDialog(),
+                    );
+                  },
+                ),
+                Button(
+                  child: Text('Undo'),
+                  onPressed: () {
+                    //document?.undo();
+                  },
+                ),
+                Button(
+                  child: Text('Redo'),
+                  onPressed: () {
+                    //document?.redo();
+                  },
+                ),
+                Expanded(
+                  child: MoveWindow(),
+                ),
+                Row(
+                  children: [
+                    MinimizeWindowButton(colors: windowButtonColors),
+                    MaximizeWindowButton(colors: windowButtonColors),
+                    CloseWindowButton(colors: windowButtonColors),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
-    ));
+    );
   }
 }
