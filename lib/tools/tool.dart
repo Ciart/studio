@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:doter/models/document.dart';
+import 'package:flutter/foundation.dart';
 
 enum ToolId {
   pen,
@@ -17,8 +18,8 @@ class ToolData {
   final Offset position;
 }
 
-abstract class Tool {
-  const Tool(this.id, this.name);
+abstract class Tool extends ChangeNotifier {
+  Tool(this.id, this.name);
 
   final ToolId id;
   final String name;
@@ -26,4 +27,8 @@ abstract class Tool {
   void onPress(Document target, ToolData data);
   void onMove(Document target, ToolData data);
   void onRelease(Document target, ToolData data);
+
+  // ignore: must_call_super
+  @override
+  void dispose() {}
 }

@@ -35,9 +35,18 @@ class _NewDocumentDialogState extends ConsumerState<NewDocumentDialog> {
       title: const Text('New Document'),
       content: Column(
         children: [
-          TextBox(header: "이름", controller: _nameController),
-          TextBox(header: "너비", controller: _widthController),
-          TextBox(header: "높이", controller: _heightController),
+          InfoLabel(
+            label: '이름',
+            child: TextBox(controller: _nameController),
+          ),
+          InfoLabel(
+            label: '너비',
+            child: TextBox(controller: _widthController),
+          ),
+          InfoLabel(
+            label: '높이',
+            child: TextBox(controller: _heightController),
+          ),
         ],
       ),
       actions: [

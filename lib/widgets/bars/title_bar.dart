@@ -46,7 +46,10 @@ class TitleBar extends ConsumerWidget {
                   },
                 ),
                 Expanded(
-                  child: MoveWindow(),
+                  child: SizedBox(
+                    height: appWindow.titleBarHeight,
+                    child: MoveWindow(),
+                  ),
                 ),
                 Row(
                   children: [

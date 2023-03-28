@@ -31,36 +31,51 @@ class _LayerPanelState extends ConsumerState<LayerPanel> {
       itemBuilder: (context, index) => ReorderableDragStartListener(
         key: ValueKey(document.layers[index]),
         index: index,
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-            children: [
-              Checkbox(
-                checked: document.layers[index].isVisible,
-                onChanged: (value) {
-                  if (value != null) {
-                    document.layers[index].isVisible = value;
-                  }
-                },
-              ),
-              FutureBuilder<ui.Image?>(
-                future: document.layers[index].image,
-                builder: (context, AsyncSnapshot<ui.Image?> snapshot) {
-                  if (!snapshot.hasData ||
-                      snapshot.hasError ||
-                      snapshot.data == null) {
-                    return Container();
-                  }
+        child: GestureDetector(
+          onTap: () {
+            document.selectLayerIndex = index;
+          },
+          child: Container(
+            color: index == document.selectLayerIndex
+                ? Colors.white
+                : Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  Checkbox(
+                    checked: document.layers[index].isVisible,
+                    onChanged: (value) {
+                      if (value != null) {
+                        document.layers[index].isVisible = value;
+                      }
+                    },
+                  ),
+                  FutureBuilder<ui.Image?>(
+                    future: document.layers[index].image,
+                    builder: (context, AsyncSnapshot<ui.Image?> snapshot) {
+                      if (!snapshot.hasData ||
+                          snapshot.hasError ||
+                          snapshot.data == null) {
+                        return SizedBox(
+                          width: 32,
+                          height: 32,
+                        );
+                      }
 
-                  return UiImage(
-                    image: snapshot.data!,
-                    width: 32,
-                    height: 32,
-                  );
-                },
+                      return UiImage(
+                        image: snapshot.data!,
+                        width: 32,
+                        height: 32,
+                      );
+                    },
+                  ),
+                  Expanded(
+                    child: Text(document.layers[index].name),
+                  )
+                ],
               ),
-              Text(document.layers[index].name),
-            ],
+            ),
           ),
         ),
       ),

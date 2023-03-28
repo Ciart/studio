@@ -21,6 +21,15 @@ class Document extends ChangeNotifier {
 
   List<Layer> layers = [];
 
+  int _selectLayerIndex = 0;
+
+  int get selectLayerIndex => _selectLayerIndex;
+
+  set selectLayerIndex(int selectLayerIndex) {
+    _selectLayerIndex = selectLayerIndex;
+    notifyListeners();
+  }
+
   Picture? picture;
 
   bool _isRefreshed = false;
@@ -72,7 +81,7 @@ class Document extends ChangeNotifier {
   }
 
   setPixel(Color color, int x, int y) {
-    (layers[0] as PixelLayer).setPixel(color, x, y);
+    (layers[this.selectLayerIndex] as PixelLayer).setPixel(color, x, y);
   }
 
   void updateLayerIndex(int oldIndex, int newIndex) {

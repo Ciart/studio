@@ -18,11 +18,13 @@ class PenProperty extends ConsumerWidget {
     return Row(
       children: [
         Slider(
+          label: '${tool.size}',
+          style: SliderThemeData(labelBackgroundColor: Colors.black),
           value: tool.size.toDouble(),
           min: 1,
           max: 10,
           onChanged: (value) => tool.size = value.toInt(),
-        )
+        ),
       ],
     );
   }

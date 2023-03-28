@@ -11,23 +11,26 @@ class ToolBar extends ConsumerWidget {
     var toolList = ref.watch(toolListProvider);
     var selectedToolIndex = ref.watch(selectedToolIndexProvider.state);
 
-    return ListView.builder(
-      itemCount: toolList.length,
-      itemBuilder: (context, index) {
-        final tool = toolList[index];
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ListView.builder(
+        itemCount: toolList.length,
+        itemBuilder: (context, index) {
+          final tool = toolList[index];
 
-        return RadioButton(
-          content: Text(tool.name),
-          checked: selectedToolIndex.state == index,
-          onChanged: (value) {
-            if (!value) {
-              return;
-            }
+          return ToggleButton(
+            child: Text(tool.name),
+            checked: selectedToolIndex.state == index,
+            onChanged: (value) {
+              if (!value) {
+                return;
+              }
 
-            selectedToolIndex.state = index;
-          },
-        );
-      },
+              selectedToolIndex.state = index;
+            },
+          );
+        },
+      ),
     );
   }
 }

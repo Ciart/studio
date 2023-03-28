@@ -22,6 +22,11 @@ class PropertyBar extends ConsumerWidget {
       child = Container();
     }
 
-    return Container(color: Color.fromARGB(255, 75, 75, 75), child: child);
+    return Container(
+        color: Color.fromARGB(255, 204, 207, 212),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: child,
+        ));
   }
 }

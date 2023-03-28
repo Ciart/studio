@@ -10,7 +10,7 @@ final toolListProvider =
 
 final selectedToolIndexProvider = StateProvider<int>((ref) => 0);
 
-final toolProvider = Provider<Tool>((ref) {
+final toolProvider = ChangeNotifierProvider<Tool>((ref) {
   return ref.watch(toolListProvider)[ref.watch(selectedToolIndexProvider)];
 });
 

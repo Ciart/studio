@@ -6,10 +6,17 @@ import 'package:doter/utilities/plot.dart';
 
 class Pen extends Tool {
   Pen({int size = 1})
-      : this.size = size,
+      : this._size = size,
         super(ToolId.pen, 'Pen');
 
-  int size;
+  int _size;
+
+  int get size => _size;
+
+  set size(int size) {
+    this._size = size;
+    notifyListeners();
+  }
 
   Offset _prevPosition = Offset.zero;
 

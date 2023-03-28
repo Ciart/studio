@@ -9,7 +9,7 @@ final layoutProvider = Provider(
       children: [
         LayoutWidget(name: 'propertyBar', size: 1),
         LayoutFlex(
-          size: 11,
+          size: 18,
           direction: Axis.horizontal,
           children: [
             LayoutWidget(name: 'toolBar', size: 1),
