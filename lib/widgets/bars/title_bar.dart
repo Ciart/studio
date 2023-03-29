@@ -36,13 +36,13 @@ class TitleBar extends ConsumerWidget {
                 Button(
                   child: Text('Undo'),
                   onPressed: () {
-                    //document?.undo();
+                    document?.undo();
                   },
                 ),
                 Button(
                   child: Text('Redo'),
                   onPressed: () {
-                    //document?.redo();
+                    document?.redo();
                   },
                 ),
                 Expanded(

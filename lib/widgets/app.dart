@@ -4,6 +4,7 @@ import 'package:doter/widgets/bars/property_bar.dart';
 import 'package:doter/widgets/bars/tool_bar.dart';
 import 'package:doter/widgets/panels/color_picker_panel.dart';
 import 'package:doter/widgets/panels/layer_panel.dart';
+import 'package:doter/widgets/panels/palette_panel.dart';
 import 'package:doter/widgets/panels/workspace_panel.dart';
 import 'package:doter/widgets/bars/title_bar.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -22,7 +23,10 @@ class App extends StatelessWidget {
       title: title,
       color: const Color(0xFFFFFFFF),
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(brightness: Brightness.light, accentColor: Colors.blue),
+      theme: FluentThemeData(
+        brightness: Brightness.light,
+        accentColor: Colors.teal,
+      ),
       home: NavigationView(
         // appBar: NavigationAppBar(title: const Text(title), actions: TitleBar()),
         content: Column(
@@ -43,7 +47,8 @@ class App extends StatelessWidget {
                               'toolBar': (context) => ToolBar(),
                               'workspacePanel': (context) => WorkspacePanel(),
                               'colorPicker': (context) => ColorPickerPanel(),
-                              'layerPanel': (context) => LayerPanel()
+                              'layerPanel': (context) => LayerPanel(),
+                              'palettePanel': (context) => PalettePanel(),
                             },
                             layout: layout,
                           );

@@ -121,4 +121,8 @@ class Document extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  void undo() {}
+
+  void redo() {}
 }

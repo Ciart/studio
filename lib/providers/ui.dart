@@ -17,6 +17,7 @@ final layoutProvider = Provider(
             LayoutFlex(
               children: [
                 LayoutWidget(name: 'colorPicker', size: 1),
+                LayoutWidget(name: 'palettePanel', size: 1),
                 LayoutWidget(name: 'layerPanel', size: 1)
               ],
               direction: Axis.vertical,
