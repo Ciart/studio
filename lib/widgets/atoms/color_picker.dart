@@ -24,7 +24,7 @@ class ColorPicker extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 var size = min(constraints.maxWidth, constraints.maxHeight);
-                var rectSize = sqrt(pow(size - 16 * 2, 2) / 2) - 8;
+                var rectSize = sqrt(pow(size - 8 * 2, 2) / 2) - 8;
 
                 return Stack(
                   children: [
@@ -128,7 +128,7 @@ class _HueRingPainter extends CustomPainter {
   const _HueRingPainter({required this.color}) : super();
 
   final HSVColor color;
-  final double ringWidth = 16;
+  final double ringWidth = 8;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -161,28 +161,11 @@ class _HueRingPainter extends CustomPainter {
 
     canvas.translate(center.dx, center.dy);
 
-    canvas.drawCircle(
-      Offset(
-        cos(angle) * radius,
-        sin(angle) * radius,
-      ),
-      ringWidth / 2,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
+    var cursorOffset = Offset(cos(angle) * radius, sin(angle) * radius);
 
-    canvas.drawCircle(
-      Offset(
-        cos(angle) * radius,
-        sin(angle) * radius,
-      ),
-      ringWidth / 2 - 1,
-      Paint()
-        ..color = const Color(0xffffffff)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
+    _ColorCursorPainter(
+            color: HSVColor.fromAHSV(1, color.hue, 1, 1), radius: ringWidth)
+        .paint(canvas, cursorOffset);
   }
 
   @override
@@ -277,30 +260,55 @@ class _GradientBox extends CustomPainter {
         ).createShader(rect),
     );
 
-    canvas.drawCircle(
-      Offset(
-        color.saturation * rect.width,
-        (1 - color.value) * rect.height,
-      ),
-      5,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
+    var cursorOffset = Offset(
+      color.saturation * rect.width,
+      (1 - color.value) * rect.height,
     );
 
-    canvas.drawCircle(
-      Offset(
-        color.saturation * rect.width,
-        (1 - color.value) * rect.height,
-      ),
-      4,
-      Paint()
-        ..color = const Color(0xffffffff)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
+    _ColorCursorPainter(color: color, radius: 8).paint(canvas, cursorOffset);
   }
 
   @override
   bool shouldRepaint(_GradientBox oldDelegate) => oldDelegate.color != color;
+}
+
+class _ColorCursorPainter {
+  const _ColorCursorPainter({
+    required HSVColor this.color,
+    required double this.radius,
+  });
+
+  final HSVColor color;
+  final double radius;
+
+  void paint(Canvas canvas, Offset offset) {
+    canvas.drawShadow(
+      Path()
+        ..addOval(
+          Rect.fromCenter(
+            center: offset,
+            width: radius * 2,
+            height: radius * 2,
+          ),
+        ),
+      Colors.black,
+      4,
+      false,
+    );
+
+    canvas.drawCircle(
+      offset,
+      radius,
+      Paint()..color = color.toColor(),
+    );
+
+    canvas.drawCircle(
+      offset,
+      radius,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4,
+    );
+  }
 }
