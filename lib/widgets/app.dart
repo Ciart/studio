@@ -14,7 +14,7 @@ import 'package:nabi/nabi.dart';
 
 import 'bars/status_bar.dart';
 
-const title = 'Doter';
+const title = 'Stellon';
 
 class App extends StatelessWidget {
   @override
