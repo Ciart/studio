@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 
-import 'package:doter/providers/document.dart';
-import 'package:doter/widgets/atoms/ui_image.dart';
+import 'package:stellon/providers/document.dart';
+import 'package:stellon/widgets/atoms/ui_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

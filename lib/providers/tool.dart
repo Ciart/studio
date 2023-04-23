@@ -1,8 +1,8 @@
-import 'package:doter/tools/eraser.dart';
-import 'package:doter/tools/line.dart';
-import 'package:doter/tools/pen.dart';
-import 'package:doter/tools/rectangle.dart';
-import 'package:doter/tools/tool.dart';
+import 'package:stellon/tools/eraser.dart';
+import 'package:stellon/tools/line.dart';
+import 'package:stellon/tools/pen.dart';
+import 'package:stellon/tools/rectangle.dart';
+import 'package:stellon/tools/tool.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final toolListProvider =

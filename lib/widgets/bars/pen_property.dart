@@ -1,5 +1,5 @@
-import 'package:doter/providers/tool.dart';
-import 'package:doter/tools/pen.dart';
+import 'package:stellon/providers/tool.dart';
+import 'package:stellon/tools/pen.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

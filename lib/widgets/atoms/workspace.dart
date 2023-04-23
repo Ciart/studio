@@ -1,11 +1,11 @@
 import 'dart:ui';
 
-import 'package:doter/models/document.dart';
-import 'package:doter/providers/color.dart';
-import 'package:doter/providers/document.dart';
-import 'package:doter/providers/ui.dart';
-import 'package:doter/providers/tool.dart';
-import 'package:doter/tools/tool.dart';
+import 'package:stellon/models/document.dart';
+import 'package:stellon/providers/color.dart';
+import 'package:stellon/providers/document.dart';
+import 'package:stellon/providers/ui.dart';
+import 'package:stellon/providers/tool.dart';
+import 'package:stellon/tools/tool.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/gestures.dart';
 

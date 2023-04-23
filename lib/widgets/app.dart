@@ -1,12 +1,12 @@
-import 'package:doter/providers/ui.dart';
-import 'package:doter/widgets/bars/menu_bar.dart';
-import 'package:doter/widgets/bars/property_bar.dart';
-import 'package:doter/widgets/bars/tool_bar.dart';
-import 'package:doter/widgets/panels/color_picker_panel.dart';
-import 'package:doter/widgets/panels/layer_panel.dart';
-import 'package:doter/widgets/panels/palette_panel.dart';
-import 'package:doter/widgets/panels/workspace_panel.dart';
-import 'package:doter/widgets/bars/title_bar.dart';
+import 'package:stellon/providers/ui.dart';
+import 'package:stellon/widgets/bars/menu_bar.dart';
+import 'package:stellon/widgets/bars/property_bar.dart';
+import 'package:stellon/widgets/bars/tool_bar.dart';
+import 'package:stellon/widgets/panels/color_picker_panel.dart';
+import 'package:stellon/widgets/panels/layer_panel.dart';
+import 'package:stellon/widgets/panels/palette_panel.dart';
+import 'package:stellon/widgets/panels/workspace_panel.dart';
+import 'package:stellon/widgets/bars/title_bar.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

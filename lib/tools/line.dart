@@ -1,8 +1,8 @@
 import 'dart:ui';
 
-import 'package:doter/models/document.dart';
-import 'package:doter/tools/tool.dart';
-import 'package:doter/utilities/plot.dart';
+import 'package:stellon/models/document.dart';
+import 'package:stellon/tools/tool.dart';
+import 'package:stellon/utilities/plot.dart';
 
 class Line extends Tool {
   Line() : super(ToolId.line, 'Line');

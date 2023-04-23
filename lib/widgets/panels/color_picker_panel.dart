@@ -1,5 +1,5 @@
-import 'package:doter/providers/color.dart';
-import 'package:doter/widgets/atoms/color_picker.dart';
+import 'package:stellon/providers/color.dart';
+import 'package:stellon/widgets/atoms/color_picker.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
