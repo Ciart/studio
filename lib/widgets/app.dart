@@ -27,41 +27,38 @@ class App extends StatelessWidget {
         brightness: Brightness.light,
         accentColor: Colors.teal,
       ),
-      home: NavigationView(
-        // appBar: NavigationAppBar(title: const Text(title), actions: TitleBar()),
-        content: Column(
-          children: [
-            TitleBar(),
-            Expanded(
-              child: MenuBar(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Consumer(
-                        builder: (context, ref, child) {
-                          final layout = ref.watch(layoutProvider);
+      home: Column(
+        children: [
+          TitleBar(),
+          Expanded(
+            child: MenuBar(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Consumer(
+                      builder: (context, ref, child) {
+                        final layout = ref.watch(layoutProvider);
 
-                          return Nabi(
-                            registeredWidgets: {
-                              'propertyBar': (context) => PropertyBar(),
-                              'toolBar': (context) => ToolBar(),
-                              'workspacePanel': (context) => WorkspacePanel(),
-                              'colorPicker': (context) => ColorPickerPanel(),
-                              'layerPanel': (context) => LayerPanel(),
-                              'palettePanel': (context) => PalettePanel(),
-                            },
-                            layout: layout,
-                          );
-                        },
-                      ),
+                        return Nabi(
+                          registeredWidgets: {
+                            'propertyBar': (context) => PropertyBar(),
+                            'toolBar': (context) => ToolBar(),
+                            'workspacePanel': (context) => WorkspacePanel(),
+                            'colorPicker': (context) => ColorPickerPanel(),
+                            'layerPanel': (context) => LayerPanel(),
+                            'palettePanel': (context) => PalettePanel(),
+                          },
+                          layout: layout,
+                        );
+                      },
                     ),
-                    StatusBar(),
-                  ],
-                ),
+                  ),
+                  StatusBar(),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

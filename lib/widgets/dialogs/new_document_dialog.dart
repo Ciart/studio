@@ -34,6 +34,7 @@ class _NewDocumentDialogState extends ConsumerState<NewDocumentDialog> {
     return ContentDialog(
       title: const Text('New Document'),
       content: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           InfoLabel(
             label: '이름',
