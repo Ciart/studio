@@ -33,7 +33,7 @@ class _ColorPickerPanelState extends ConsumerState<ColorPickerPanel> {
     return ColorPicker(
       color: primaryHSVColor,
       onChange: (color) {
-        var primaryColor = ref.read(primaryColorProvider.state);
+        var primaryColor = ref.read(primaryColorProvider.notifier);
         primaryColor.state = color.toColor();
 
         setState(() {
