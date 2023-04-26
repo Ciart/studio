@@ -1,4 +1,6 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:stellon/providers/ui.dart';
+import 'package:stellon/repositories/document_repository.dart';
 import 'package:stellon/widgets/bars/menu_bar.dart';
 import 'package:stellon/widgets/bars/property_bar.dart';
 import 'package:stellon/widgets/bars/tool_bar.dart';
@@ -19,46 +21,49 @@ const title = 'Stellon';
 class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return FluentApp(
-      title: title,
-      color: const Color(0xFFFFFFFF),
-      debugShowCheckedModeBanner: false,
-      theme: FluentThemeData(
-        brightness: Brightness.light,
-        accentColor: Colors.teal,
-      ),
-      home: Column(
-        children: [
-          TitleBar(),
-          Expanded(
-            child: MenuBar(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Consumer(
-                      builder: (context, ref, child) {
-                        final layout = ref.watch(layoutProvider);
+    return RepositoryProvider(
+      create: (context) => DocumentRepository(),
+      child: FluentApp(
+        title: title,
+        color: const Color(0xFFFFFFFF),
+        debugShowCheckedModeBanner: false,
+        theme: FluentThemeData(
+          brightness: Brightness.light,
+          accentColor: Colors.teal,
+        ),
+        home: Column(
+          children: [
+            TitleBar(),
+            Expanded(
+              child: MenuBar(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          final layout = ref.watch(layoutProvider);
 
-                        return Nabi(
-                          registeredWidgets: {
-                            'propertyBar': (context) => PropertyBar(),
-                            'toolBar': (context) => ToolBar(),
-                            'workspacePanel': (context) => WorkspacePanel(),
-                            'colorPicker': (context) => ColorPickerPanel(),
-                            'layerPanel': (context) => LayerPanel(),
-                            'palettePanel': (context) => PalettePanel(),
-                          },
-                          layout: layout,
-                        );
-                      },
+                          return Nabi(
+                            registeredWidgets: {
+                              'propertyBar': (context) => PropertyBar(),
+                              'toolBar': (context) => ToolBar(),
+                              'workspacePanel': (context) => WorkspacePanel(),
+                              'colorPicker': (context) => ColorPickerPanel(),
+                              'layerPanel': (context) => LayerPanel(),
+                              'palettePanel': (context) => PalettePanel(),
+                            },
+                            layout: layout,
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  StatusBar(),
-                ],
+                    StatusBar(),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

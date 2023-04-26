@@ -2,9 +2,11 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:stellon/utilities/event.dart';
 
 import 'layers/layer.dart';
 import 'layers/pixel_layer.dart';
+import 'palette.dart';
 
 class Document extends ChangeNotifier {
   /// documentProvider에서 사용하는 식별자
@@ -18,6 +20,8 @@ class Document extends ChangeNotifier {
 
   late int _height;
   int get height => _height;
+
+  Palette palette = Palette([]);
 
   List<Layer> layers = [];
 
