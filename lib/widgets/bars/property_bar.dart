@@ -1,6 +1,6 @@
-import 'package:stellon/providers/tool.dart';
-import 'package:stellon/tools/pen.dart';
-import 'package:stellon/widgets/bars/pen_property.dart';
+import 'package:ciart_studio/providers/tool.dart';
+import 'package:ciart_studio/tools/pen.dart';
+import 'package:ciart_studio/widgets/bars/pen_property.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

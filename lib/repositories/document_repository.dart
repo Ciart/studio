@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:stellon/models/document.dart';
+import 'package:ciart_studio/models/document.dart';
 
 class DocumentRepository {
   final Document document = Document('test');

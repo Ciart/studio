@@ -1,8 +1,8 @@
 import 'dart:ui';
 
-import 'package:stellon/models/document.dart';
-import 'package:stellon/tools/tool.dart';
-import 'package:stellon/utilities/plot.dart';
+import 'package:ciart_studio/models/document.dart';
+import 'package:ciart_studio/tools/tool.dart';
+import 'package:ciart_studio/utilities/plot.dart';
 
 class Pen extends Tool {
   Pen({int size = 1})

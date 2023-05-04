@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:stellon/utilities/event.dart';
+import 'package:ciart_studio/utilities/event.dart';
 
 class ChangeEventArgs extends EventArgs {
   List<Color> colors;

@@ -1,11 +1,11 @@
 import 'dart:ui';
 
-import 'package:stellon/models/document.dart';
-import 'package:stellon/providers/color.dart';
-import 'package:stellon/providers/document.dart';
-import 'package:stellon/providers/ui.dart';
-import 'package:stellon/providers/tool.dart';
-import 'package:stellon/tools/tool.dart';
+import 'package:ciart_studio/models/document.dart';
+import 'package:ciart_studio/providers/color.dart';
+import 'package:ciart_studio/providers/document.dart';
+import 'package:ciart_studio/providers/ui.dart';
+import 'package:ciart_studio/providers/tool.dart';
+import 'package:ciart_studio/tools/tool.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/gestures.dart';
 

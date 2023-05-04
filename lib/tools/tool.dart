@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:stellon/models/document.dart';
+import 'package:ciart_studio/models/document.dart';
 import 'package:flutter/foundation.dart';
 
 enum ToolId {

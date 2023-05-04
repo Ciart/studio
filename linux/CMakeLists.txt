@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(runner LANGUAGES CXX)
 
-set(BINARY_NAME "stellon")
-set(APPLICATION_ID "com.example.stellon")
+set(BINARY_NAME "ciart_studio")
+set(APPLICATION_ID "com.ciart.studio")
 
 cmake_policy(SET CMP0063 NEW)
 

@@ -1,14 +1,14 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:stellon/providers/ui.dart';
-import 'package:stellon/repositories/document_repository.dart';
-import 'package:stellon/widgets/bars/menu_bar.dart';
-import 'package:stellon/widgets/bars/property_bar.dart';
-import 'package:stellon/widgets/bars/tool_bar.dart';
-import 'package:stellon/widgets/panels/color_picker_panel.dart';
-import 'package:stellon/widgets/panels/layer_panel.dart';
-import 'package:stellon/widgets/panels/palette_panel.dart';
-import 'package:stellon/widgets/panels/workspace_panel.dart';
-import 'package:stellon/widgets/bars/title_bar.dart';
+import 'package:ciart_studio/providers/ui.dart';
+import 'package:ciart_studio/repositories/document_repository.dart';
+import 'package:ciart_studio/widgets/bars/menu_bar.dart';
+import 'package:ciart_studio/widgets/bars/property_bar.dart';
+import 'package:ciart_studio/widgets/bars/tool_bar.dart';
+import 'package:ciart_studio/widgets/panels/color_picker_panel.dart';
+import 'package:ciart_studio/widgets/panels/layer_panel.dart';
+import 'package:ciart_studio/widgets/panels/palette_panel.dart';
+import 'package:ciart_studio/widgets/panels/workspace_panel.dart';
+import 'package:ciart_studio/widgets/bars/title_bar.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,7 +16,7 @@ import 'package:nabi/nabi.dart';
 
 import 'bars/status_bar.dart';
 
-const title = 'Stellon';
+const title = 'Ciart Studio';
 
 class App extends StatelessWidget {
   @override

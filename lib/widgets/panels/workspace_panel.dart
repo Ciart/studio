@@ -1,5 +1,5 @@
-import 'package:stellon/providers/document.dart';
-import 'package:stellon/widgets/atoms/workspace.dart';
+import 'package:ciart_studio/providers/document.dart';
+import 'package:ciart_studio/widgets/atoms/workspace.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

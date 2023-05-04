@@ -1,7 +1,7 @@
 import 'dart:ui';
 
-import 'package:stellon/models/document.dart';
-import 'package:stellon/tools/tool.dart';
+import 'package:ciart_studio/models/document.dart';
+import 'package:ciart_studio/tools/tool.dart';
 
 class Rectangle extends Tool {
   Rectangle() : super(ToolId.rectangle, 'Rectangle');

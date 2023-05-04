@@ -1,8 +1,8 @@
-import 'package:stellon/tools/eraser.dart';
-import 'package:stellon/tools/line.dart';
-import 'package:stellon/tools/pen.dart';
-import 'package:stellon/tools/rectangle.dart';
-import 'package:stellon/tools/tool.dart';
+import 'package:ciart_studio/tools/eraser.dart';
+import 'package:ciart_studio/tools/line.dart';
+import 'package:ciart_studio/tools/pen.dart';
+import 'package:ciart_studio/tools/rectangle.dart';
+import 'package:ciart_studio/tools/tool.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final toolListProvider =

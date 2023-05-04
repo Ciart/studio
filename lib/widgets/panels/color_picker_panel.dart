@@ -1,5 +1,5 @@
-import 'package:stellon/providers/color.dart';
-import 'package:stellon/widgets/atoms/color_picker.dart';
+import 'package:ciart_studio/providers/color.dart';
+import 'package:ciart_studio/widgets/atoms/color_picker.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

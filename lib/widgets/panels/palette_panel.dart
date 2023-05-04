@@ -1,9 +1,9 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:stellon/blocs/palette_cubit.dart';
-import 'package:stellon/providers/color.dart';
-import 'package:stellon/repositories/document_repository.dart';
+import 'package:ciart_studio/blocs/palette_cubit.dart';
+import 'package:ciart_studio/providers/color.dart';
+import 'package:ciart_studio/repositories/document_repository.dart';
 
 class PalettePanel extends ConsumerStatefulWidget {
   const PalettePanel({super.key});

@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:stellon/utilities/event.dart';
+import 'package:ciart_studio/utilities/event.dart';
 
 import 'layers/layer.dart';
 import 'layers/pixel_layer.dart';

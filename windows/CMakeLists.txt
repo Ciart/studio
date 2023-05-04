@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
-project(stellon LANGUAGES CXX)
+project(ciart_studio LANGUAGES CXX)
 
-set(BINARY_NAME "stellon")
+set(BINARY_NAME "ciart_studio")
 
 cmake_policy(SET CMP0063 NEW)
 

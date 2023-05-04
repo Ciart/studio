@@ -1,5 +1,5 @@
-import 'package:stellon/models/document.dart';
-import 'package:stellon/tools/tool.dart';
+import 'package:ciart_studio/models/document.dart';
+import 'package:ciart_studio/tools/tool.dart';
 
 class Eyedropper extends Tool {
   Eyedropper() : super(ToolId.eyedropper, 'Eyedropper');

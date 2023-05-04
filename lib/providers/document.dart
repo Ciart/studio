@@ -1,4 +1,4 @@
-import 'package:stellon/models/document.dart';
+import 'package:ciart_studio/models/document.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final documentProvider =

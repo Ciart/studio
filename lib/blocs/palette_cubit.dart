@@ -1,8 +1,8 @@
 import 'dart:ui';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:stellon/models/palette.dart';
-import 'package:stellon/repositories/document_repository.dart';
+import 'package:ciart_studio/models/palette.dart';
+import 'package:ciart_studio/repositories/document_repository.dart';
 
 class PaletteCubit extends Cubit<Palette> {
   PaletteCubit(this.documentRepository) : super([]) {
