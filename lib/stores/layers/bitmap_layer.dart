@@ -2,27 +2,29 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui';
 
-import '../document.dart';
+import 'package:mobx/mobx.dart';
+
 import 'layer.dart';
 
-class PixelLayer extends Layer {
-  int _width;
-  int get width => _width;
+part 'bitmap_layer.g.dart';
 
-  int _height;
-  int get height => _height;
+class BitmapLayer = _BitmapLayer with _$BitmapLayer;
+
+abstract class _BitmapLayer extends Layer with Store {
+  @observable
+  int width;
+
+  @observable
+  int height;
 
   Uint8List _pixels;
 
-  PixelLayer({
-    required Document document,
+  _BitmapLayer({
     required String name,
-    required int width,
-    required int height,
-  })  : _width = width,
-        _height = height,
-        _pixels = Uint8List(width * height * 4),
-        super(document: document, name: name);
+    required this.width,
+    required this.height,
+  })  : _pixels = Uint8List(width * height * 4),
+        super(name: name);
 
   void setPixel(Color color, int x, int y) {
     if (x < 0 || y < 0 || x >= width || y >= height) {
@@ -31,28 +33,14 @@ class PixelLayer extends Layer {
 
     var targetIndex = (y * width + x) * 4;
 
-    if (_pixels[targetIndex] == color.red &&
-        _pixels[targetIndex + 1] == color.green &&
-        _pixels[targetIndex + 2] == color.blue &&
-        _pixels[targetIndex + 3] == color.alpha) {
-      return;
-    }
-
     _pixels[targetIndex] = color.red;
     _pixels[targetIndex + 1] = color.green;
     _pixels[targetIndex + 2] = color.blue;
     _pixels[targetIndex + 3] = color.alpha;
-
-    refresh();
   }
 
   @override
   Future<Image> render() async {
-    // if (!_isOutdated) {
-    //   return;
-    // }
-    // _isOutdated = false;
-
     var completer = Completer<Image>();
 
     decodeImageFromPixels(

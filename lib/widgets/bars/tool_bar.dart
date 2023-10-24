@@ -1,33 +1,34 @@
-import 'package:ciart_studio/providers/tool.dart';
+import 'package:ciart_studio/stores/tool_store.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:provider/provider.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-class ToolBar extends ConsumerWidget {
+class ToolBar extends StatelessWidget {
   const ToolBar({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    var toolList = ref.watch(toolListProvider);
-    var selectedToolIndex = ref.watch(selectedToolIndexProvider.state);
+  Widget build(BuildContext context) {
+    final toolStore = context.read<ToolStore>();
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: ListView.builder(
-        itemCount: toolList.length,
+        itemCount: toolStore.tools.length,
         itemBuilder: (context, index) {
-          final tool = toolList[index];
+          final tool = toolStore.tools[index];
 
-          return ToggleButton(
-            child: Text(tool.name),
-            checked: selectedToolIndex.state == index,
-            onChanged: (value) {
-              if (!value) {
-                return;
-              }
+          return Observer(
+            builder: (context) => ToggleButton(
+              child: Text(tool.name),
+              checked: toolStore.focusIndex == index,
+              onChanged: (value) {
+                if (!value) {
+                  return;
+                }
 
-              selectedToolIndex.state = index;
-            },
+                toolStore.focus(index);
+              },
+            ),
           );
         },
       ),

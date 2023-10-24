@@ -1,37 +1,43 @@
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:mobx/mobx.dart';
+import 'package:uuid/uuid.dart';
 
 import 'layers/layer.dart';
-import 'layers/pixel_layer.dart';
+import 'layers/bitmap_layer.dart';
 
-class Document extends ChangeNotifier {
-  /// documentProvider에서 사용하는 식별자
-  final String id;
+part 'document.g.dart';
 
-  late String _name;
-  String get name => _name;
+class Document = _Document with _$Document;
 
-  late int _width;
-  int get width => _width;
+abstract class _Document with Store {
+  final String id = Uuid().v4();
 
-  late int _height;
-  int get height => _height;
+  @observable
+  String name;
 
-  List<Color> palette = [];
+  @observable
+  int width;
 
-  List<Layer> layers = [];
+  @observable
+  late int height;
 
-  int _selectLayerIndex = 0;
+  @observable
+  ObservableList<Color> palette = ObservableList();
 
-  int get selectLayerIndex => _selectLayerIndex;
+  @observable
+  ObservableList<Layer> layers = ObservableList();
 
-  set selectLayerIndex(int selectLayerIndex) {
-    _selectLayerIndex = selectLayerIndex;
-    notifyListeners();
-  }
+  @observable
+  int selectLayerIndex = 0;
 
+  // set selectLayerIndex(int selectLayerIndex) {
+  //   _selectLayerIndex = selectLayerIndex;
+  //   notifyListeners();
+  // }
+
+  @observable
   Picture? picture;
 
   bool _isRefreshed = false;
@@ -39,23 +45,18 @@ class Document extends ChangeNotifier {
 
   late Ticker _ticker;
 
-  Document(this.id);
-
-  void init({required String name, required int width, required int height}) {
-    _name = name;
-    _width = width;
-    _height = height;
-
+  _Document({required this.name, required this.width, required this.height}) {
     layers.add(
-      PixelLayer(document: this, name: 'Layer 1', width: width, height: height),
+      BitmapLayer(name: 'Layer 1', width: width, height: height),
     );
     layers.add(
-      PixelLayer(document: this, name: 'Layer 2', width: width, height: height),
+      BitmapLayer(name: 'Layer 2', width: width, height: height),
     );
     layers.add(
-      PixelLayer(document: this, name: 'Layer 3', width: width, height: height),
+      BitmapLayer(name: 'Layer 3', width: width, height: height),
     );
 
+    // TODO: 외부로 옮기기
     _ticker = Ticker(
       (duration) async {
         if (!_isRefreshed) {
@@ -71,21 +72,15 @@ class Document extends ChangeNotifier {
     )..start();
   }
 
-  @override
-  void dispose() {
-    // super.dispose();
-
-    // _ticker.dispose();
-  }
-
   void refresh() {
     _isRefreshed = false;
   }
 
   setPixel(Color color, int x, int y) {
-    (layers[this.selectLayerIndex] as PixelLayer).setPixel(color, x, y);
+    (layers[this.selectLayerIndex] as BitmapLayer).setPixel(color, x, y);
   }
 
+  @action
   void updateLayerIndex(int oldIndex, int newIndex) {
     if (oldIndex < newIndex) {
       newIndex -= 1;
@@ -94,11 +89,10 @@ class Document extends ChangeNotifier {
     final layer = layers.removeAt(oldIndex);
     layers.insert(newIndex, layer);
 
-    notifyListeners();
-
-    render();
+    refresh();
   }
 
+  @action
   Future<void> render() async {
     final recorder = PictureRecorder();
     final canvas = Canvas(recorder);
@@ -120,11 +114,11 @@ class Document extends ChangeNotifier {
     }
 
     picture = recorder.endRecording();
-
-    notifyListeners();
   }
 
+  @action
   void undo() {}
 
+  @action
   void redo() {}
 }

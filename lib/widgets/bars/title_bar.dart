@@ -3,20 +3,15 @@ import 'dart:io';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:ciart_studio/widgets/dialogs/new_document_dialog.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/document.dart';
 
 final windowButtonColors =
     WindowButtonColors(iconNormal: const Color(0xff000000));
 
-class TitleBar extends ConsumerWidget {
+class TitleBar extends StatelessWidget {
   const TitleBar({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final document = ref.watch(focusDocumentProvider);
-
+  Widget build(BuildContext context) {
     return WindowTitleBarBox(
       child: Column(
         children: [
@@ -36,13 +31,13 @@ class TitleBar extends ConsumerWidget {
                 Button(
                   child: Text('Undo'),
                   onPressed: () {
-                    document?.undo();
+                    // document?.undo();
                   },
                 ),
                 Button(
                   child: Text('Redo'),
                   onPressed: () {
-                    document?.redo();
+                    // document?.redo();
                   },
                 ),
                 Expanded(

@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:ciart_studio/models/document.dart';
+import 'package:ciart_studio/stores/document.dart';
 import 'package:ciart_studio/tools/tool.dart';
 
 class Eraser extends Tool {

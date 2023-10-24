@@ -1,17 +1,16 @@
 import 'dart:ui';
 
-import 'package:ciart_studio/models/document.dart';
-import 'package:ciart_studio/providers/color.dart';
-import 'package:ciart_studio/providers/document.dart';
-import 'package:ciart_studio/providers/ui.dart';
-import 'package:ciart_studio/providers/tool.dart';
+import 'package:ciart_studio/stores/color_store.dart';
+import 'package:ciart_studio/stores/document.dart';
+import 'package:ciart_studio/stores/document_container.dart';
+import 'package:ciart_studio/stores/tool_store.dart';
 import 'package:ciart_studio/tools/tool.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:provider/provider.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-class Workspace extends ConsumerStatefulWidget {
+class Workspace extends StatefulWidget {
   const Workspace({Key? key, required this.document}) : super(key: key);
 
   final Document document;
@@ -20,20 +19,26 @@ class Workspace extends ConsumerStatefulWidget {
   _WorkspaceState createState() => _WorkspaceState();
 }
 
-class _WorkspaceState extends ConsumerState<Workspace> {
+class _WorkspaceState extends State<Workspace> {
   var _offset = Offset.zero;
   var _rawScale = 1.0;
   var _scale = 1.0;
   var _prevLocalPosition = Offset.zero;
   var _origin = Offset.zero;
 
+  @override
+  void initState() {
+    super.initState();
+  }
+
   Offset _computeDocumentPosition(Offset localPosition) {
     return ((localPosition - _origin) / _scale);
   }
 
   void _updateDocumentPosition(Offset localPosition) {
-    var documentPosition = ref.watch(documentPositionProvider.state);
-    documentPosition.state = _computeDocumentPosition(localPosition);
+    final toolStore = context.read<ToolStore>();
+
+    toolStore.setPosition(_computeDocumentPosition(localPosition));
   }
 
   void _onPointerHover(PointerHoverEvent event) {
@@ -41,8 +46,12 @@ class _WorkspaceState extends ConsumerState<Workspace> {
   }
 
   void _onPointerDown(PointerDownEvent event) {
-    var primaryColor = ref.read(primaryColorProvider);
-    var tool = ref.read(toolProvider);
+    final documentContainer = context.read<DocumentContainer>();
+    final toolStore = context.read<ToolStore>();
+    final colorStore = context.read<ColorStore>();
+
+    final tool = toolStore.focusTool;
+    final primaryColor = colorStore.primaryColor;
 
     if (event.buttons & kSecondaryButton != 0) {
       setState(() {
@@ -60,12 +69,15 @@ class _WorkspaceState extends ConsumerState<Workspace> {
     }
 
     // focus (나중에 Nabi에서 해야 함)
-    ref.watch(focusDocumentIdProvider.notifier).state = widget.document.id;
+    documentContainer.focus(widget.document.id);
   }
 
   void _onPointerMove(PointerMoveEvent event) {
-    var primaryColor = ref.read(primaryColorProvider);
-    var tool = ref.read(toolProvider);
+    final toolStore = context.read<ToolStore>();
+    final colorStore = context.read<ColorStore>();
+
+    final tool = toolStore.focusTool;
+    final primaryColor = colorStore.primaryColor;
 
     if (event.buttons & kSecondaryButton != 0) {
       setState(() {
@@ -85,8 +97,11 @@ class _WorkspaceState extends ConsumerState<Workspace> {
   }
 
   void _onPointerUp(PointerUpEvent event) {
-    var primaryColor = ref.read(primaryColorProvider);
-    var tool = ref.read(toolProvider);
+    final toolStore = context.read<ToolStore>();
+    final colorStore = context.read<ColorStore>();
+
+    final tool = toolStore.focusTool;
+    final primaryColor = colorStore.primaryColor;
 
     var position = _computeDocumentPosition(event.localPosition);
 
@@ -180,14 +195,16 @@ class _WorkspaceState extends ConsumerState<Workspace> {
         onPointerPanZoomEnd: _onPointerPanZoomEnd,
         child: RepaintBoundary(
           child: ClipRect(
-            child: CustomPaint(
-              painter: _WorkspacePainter(
-                picture: widget.document.picture,
-                width: widget.document.width,
-                height: widget.document.height,
-                offset: _offset,
-                scale: _scale,
-                updateOrigin: _updateOrigin,
+            child: Observer(
+              builder: (context) => CustomPaint(
+                painter: _WorkspacePainter(
+                  picture: widget.document.picture,
+                  width: widget.document.width,
+                  height: widget.document.height,
+                  offset: _offset,
+                  scale: _scale,
+                  updateOrigin: _updateOrigin,
+                ),
               ),
             ),
           ),

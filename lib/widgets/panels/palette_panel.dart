@@ -1,15 +1,15 @@
+import 'package:ciart_studio/stores/color_store.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:ciart_studio/providers/color.dart';
+import 'package:provider/provider.dart';
 
-class PalettePanel extends ConsumerStatefulWidget {
+class PalettePanel extends StatefulWidget {
   const PalettePanel({super.key});
 
   @override
-  ConsumerState<ConsumerStatefulWidget> createState() => _PalettePanelState();
+  _PalettePanelState createState() => _PalettePanelState();
 }
 
-class _PalettePanelState extends ConsumerState<PalettePanel> {
+class _PalettePanelState extends State<PalettePanel> {
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -19,7 +19,7 @@ class _PalettePanelState extends ConsumerState<PalettePanel> {
             IconButton(
               icon: const Icon(FluentIcons.add, size: 12.0),
               onPressed: () {
-                final color = ref.read(primaryColorProvider);
+                final color = context.read<ColorStore>().primaryColor;
               },
             )
           ],
@@ -38,8 +38,9 @@ class _PalettePanelState extends ConsumerState<PalettePanel> {
                       constraints: BoxConstraints.expand(width: 20, height: 20),
                     ),
                     child: GestureDetector(
-                      onTap: () =>
-                          ref.read(primaryColorProvider.notifier).state = color,
+                      onTap: () => context
+                          .read<ColorStore>()
+                          .setPrimary(HSVColor.fromColor(color)),
                       child: Container(
                         constraints:
                             BoxConstraints.expand(width: 20, height: 20),

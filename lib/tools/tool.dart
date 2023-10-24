@@ -1,7 +1,8 @@
 import 'dart:ui';
 
-import 'package:ciart_studio/models/document.dart';
 import 'package:flutter/foundation.dart';
+
+import '../stores/document.dart';
 
 enum ToolId {
   pen,
