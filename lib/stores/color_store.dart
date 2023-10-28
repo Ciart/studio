@@ -18,6 +18,9 @@ abstract class _ColorStore with Store {
   @computed
   Color get secondaryColor => secondary.toColor();
 
+  @observable
+  ObservableList<Color> palette = ObservableList.of([]);
+
   @action
   void setPrimary(HSVColor color) {
     primary = color;
@@ -26,5 +29,27 @@ abstract class _ColorStore with Store {
   @action
   void setSecondary(HSVColor color) {
     secondary = color;
+  }
+
+  @action
+  void addColor(Color color) {
+    if (palette.contains(color)) {
+      return;
+    }
+
+    palette.add(color);
+  }
+
+  @action
+  void swapColor(Color a, Color b) {
+    final aIndex = palette.indexOf(a);
+    final bIndex = palette.indexOf(b);
+
+    if (aIndex == -1 || bIndex == -1) {
+      return;
+    }
+
+    palette[aIndex] = b;
+    palette[bIndex] = a;
   }
 }

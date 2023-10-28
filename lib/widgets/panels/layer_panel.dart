@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import 'package:ciart_studio/stores/document_container.dart';
 import 'package:ciart_studio/widgets/atoms/ui_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -22,79 +20,83 @@ class _LayerPanelState extends State<LayerPanel> {
       builder: (context) {
         final document = context.read<DocumentContainer>().focusDocument;
 
-        if (document == null) {
-          return Container();
-        }
-
-        return Observer(
-          builder: (context) {
-            return ReorderableListView.builder(
-              scrollController: controller,
-              buildDefaultDragHandles: false,
-              itemCount: document.layers.length,
-              itemBuilder: (context, index) => ReorderableDragStartListener(
-                key: ValueKey(document.layers[index]),
-                index: index,
-                child: GestureDetector(
-                  onTap: () {
-                    document.selectLayerIndex = index;
-                  },
-                  child: Container(
-                    color: index == document.selectLayerIndex
-                        ? Colors.white
-                        : Colors.transparent,
-                    child: Observer(
-                      builder: (context) {
-                        final layer = document.layers[index];
-
-                        return Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Row(
-                            children: [
-                              Checkbox(
-                                checked: layer.isVisible,
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    layer.isVisible = value;
-                                  }
-                                },
-                              ),
-                              FutureBuilder<ui.Image?>(
-                                future: layer.image,
-                                builder: (
-                                  context,
-                                  AsyncSnapshot<ui.Image?> snapshot,
-                                ) {
-                                  if (!snapshot.hasData ||
-                                      snapshot.hasError ||
-                                      snapshot.data == null) {
-                                    return SizedBox(
-                                      width: 32,
-                                      height: 32,
-                                    );
-                                  }
-
-                                  return UiImage(
-                                    image: snapshot.data!,
-                                    width: 32,
-                                    height: 32,
-                                  );
-                                },
-                              ),
-                              Expanded(
-                                child: Text(layer.name),
-                              )
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+        return Column(
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(FluentIcons.add, size: 12.0),
+                  onPressed: document != null
+                      ? () {
+                          document.createBitmapLayer();
+                        }
+                      : null,
                 ),
+              ],
+            ),
+            Expanded(
+              child: Observer(
+                builder: (context) {
+                  if (document == null) {
+                    return Container();
+                  }
+
+                  return ReorderableListView.builder(
+                    scrollController: controller,
+                    buildDefaultDragHandles: false,
+                    itemCount: document.layers.length,
+                    itemBuilder: (context, index) =>
+                        ReorderableDragStartListener(
+                      key: ValueKey(document.layers[index]),
+                      index: index,
+                      child: GestureDetector(
+                        onTap: () {
+                          document.selectLayerIndex = index;
+                        },
+                        child: Container(
+                          color: index == document.selectLayerIndex
+                              ? Colors.white
+                              : Colors.transparent,
+                          child: Observer(
+                            builder: (context) {
+                              final layer = document.layers[index];
+
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Row(
+                                  children: [
+                                    Checkbox(
+                                      checked: layer.isVisible,
+                                      onChanged: (value) {
+                                        if (value != null) {
+                                          layer.isVisible = value;
+                                        }
+                                      },
+                                    ),
+                                    layer.thumbnail != null
+                                        ? UiImage(
+                                            image: layer.thumbnail!,
+                                            width: 32,
+                                            height: 32,
+                                          )
+                                        : Container(),
+                                    Expanded(
+                                      child: Text(layer.name),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                    onReorder: document.updateLayerIndex,
+                  );
+                },
               ),
-              onReorder: document.updateLayerIndex,
-            );
-          },
+            ),
+          ],
         );
       },
     );

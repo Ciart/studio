@@ -1,8 +1,7 @@
 import 'dart:ui';
 
+import 'package:ciart_studio/stores/document.dart';
 import 'package:mobx/mobx.dart';
-
-import '../stores/document.dart';
 
 part 'tool.g.dart';
 

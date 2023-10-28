@@ -8,7 +8,7 @@ class ToolBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final toolStore = context.read<ToolStore>();
+    final toolStore = context.read<ToolContainer>();
 
     return Padding(
       padding: const EdgeInsets.all(16.0),

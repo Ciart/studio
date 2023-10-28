@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:ciart_studio/stores/document.dart';
+import 'package:ciart_studio/stores/layers/bitmap_layer.dart';
 import 'package:ciart_studio/tools/tool.dart';
 
 class Rectangle extends Tool {
@@ -18,17 +19,25 @@ class Rectangle extends Tool {
 
   @override
   void onRelease(Document target, ToolData data) {
+    final layer = target.selectedLayer;
+
+    if (!(layer is BitmapLayer)) {
+      return;
+    }
+
     for (int i = 0; i < data.position.dx - _startPosition.dx; i++) {
-      target.setPixel(
+      layer.setPixel(
         data.primaryColor,
         _startPosition.dx.toInt() + i,
         _startPosition.dy.toInt(),
       );
-      target.setPixel(
+      layer.setPixel(
         data.primaryColor,
         _startPosition.dx.toInt() + i,
         data.position.dy.toInt(),
       );
     }
+
+    layer.invalidate();
   }
 }

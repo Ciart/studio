@@ -36,7 +36,7 @@ class _WorkspaceState extends State<Workspace> {
   }
 
   void _updateDocumentPosition(Offset localPosition) {
-    final toolStore = context.read<ToolStore>();
+    final toolStore = context.read<ToolContainer>();
 
     toolStore.setPosition(_computeDocumentPosition(localPosition));
   }
@@ -47,7 +47,7 @@ class _WorkspaceState extends State<Workspace> {
 
   void _onPointerDown(PointerDownEvent event) {
     final documentContainer = context.read<DocumentContainer>();
-    final toolStore = context.read<ToolStore>();
+    final toolStore = context.read<ToolContainer>();
     final colorStore = context.read<ColorStore>();
 
     final tool = toolStore.focusTool;
@@ -73,7 +73,7 @@ class _WorkspaceState extends State<Workspace> {
   }
 
   void _onPointerMove(PointerMoveEvent event) {
-    final toolStore = context.read<ToolStore>();
+    final toolStore = context.read<ToolContainer>();
     final colorStore = context.read<ColorStore>();
 
     final tool = toolStore.focusTool;
@@ -97,7 +97,7 @@ class _WorkspaceState extends State<Workspace> {
   }
 
   void _onPointerUp(PointerUpEvent event) {
-    final toolStore = context.read<ToolStore>();
+    final toolStore = context.read<ToolContainer>();
     final colorStore = context.read<ColorStore>();
 
     final tool = toolStore.focusTool;
@@ -112,29 +112,29 @@ class _WorkspaceState extends State<Workspace> {
   }
 
   void _onPointerSignal(PointerSignalEvent event) {
-    // if (event is PointerScrollEvent) {
-    //   setState(() {
-    //     const minScale = 0.5;
-    //     const maxScale = 5.0;
+    if (event is PointerScrollEvent && event.kind == PointerDeviceKind.mouse) {
+      setState(() {
+        const minScale = 0.5;
+        const maxScale = 5.0;
 
-    //     _rawScale -= event.scrollDelta.dy / 100;
+        _rawScale -= event.scrollDelta.dy / 500;
 
-    //     if (_rawScale < minScale) {
-    //       _rawScale = minScale;
-    //     } else if (_rawScale > maxScale) {
-    //       _rawScale = maxScale;
-    //     }
+        if (_rawScale < minScale) {
+          _rawScale = minScale;
+        } else if (_rawScale > maxScale) {
+          _rawScale = maxScale;
+        }
 
-    //     _scale = _rawScale * _rawScale * _rawScale;
-    //   });
-    // }
+        _scale = _rawScale * _rawScale * _rawScale;
+      });
+    }
   }
 
-  var _zoom = 1.0;
+  var _trackpadZoomOffset = 1.0;
 
   void _onPointerPanZoomStart(PointerPanZoomStartEvent event) {
     setState(() {
-      _zoom = 1.0;
+      _trackpadZoomOffset = 1.0;
     });
   }
 
@@ -145,17 +145,17 @@ class _WorkspaceState extends State<Workspace> {
       const minScale = 0.5;
       const maxScale = 5.0;
 
-      _zoom = event.scale;
+      _trackpadZoomOffset = event.scale;
 
-      var a = _rawScale * _zoom;
+      var trackpadZoomScale = _rawScale * _trackpadZoomOffset;
 
-      if (a < minScale) {
-        a = minScale;
-      } else if (a > maxScale) {
-        a = maxScale;
+      if (trackpadZoomScale < minScale) {
+        trackpadZoomScale = minScale;
+      } else if (trackpadZoomScale > maxScale) {
+        trackpadZoomScale = maxScale;
       }
 
-      _scale = a * a * a;
+      _scale = trackpadZoomScale * trackpadZoomScale * trackpadZoomScale;
     });
   }
 
@@ -164,7 +164,7 @@ class _WorkspaceState extends State<Workspace> {
       const minScale = 0.5;
       const maxScale = 5.0;
 
-      _rawScale *= _zoom;
+      _rawScale *= _trackpadZoomOffset;
 
       if (_rawScale < minScale) {
         _rawScale = minScale;

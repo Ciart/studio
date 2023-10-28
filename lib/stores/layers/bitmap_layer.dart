@@ -23,8 +23,9 @@ abstract class _BitmapLayer extends Layer with Store {
     required String name,
     required this.width,
     required this.height,
+    Function? onInvalidate,
   })  : _pixels = Uint8List(width * height * 4),
-        super(name: name);
+        super(name: name, onInvalidate: onInvalidate);
 
   void setPixel(Color color, int x, int y) {
     if (x < 0 || y < 0 || x >= width || y >= height) {

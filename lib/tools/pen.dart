@@ -1,33 +1,37 @@
 import 'dart:ui';
 
 import 'package:ciart_studio/stores/document.dart';
+import 'package:ciart_studio/stores/layers/bitmap_layer.dart';
 import 'package:ciart_studio/tools/tool.dart';
 import 'package:ciart_studio/utilities/plot.dart';
+import 'package:mobx/mobx.dart';
 
-class Pen extends Tool {
-  Pen({int size = 1})
-      : this._size = size,
-        super(ToolId.pen, 'Pen');
+part 'pen.g.dart';
 
-  int _size;
+class Pen = _Pen with _$Pen;
 
-  int get size => _size;
+abstract class _Pen extends Tool with Store {
+  _Pen({this.size = 1}) : super(ToolId.pen, 'Pen');
 
-  set size(int size) {
-    this._size = size;
-    notifyListeners();
-  }
+  @observable
+  int size;
 
   Offset _prevPosition = Offset.zero;
 
   @override
   void onPress(Document target, ToolData data) {
+    final layer = target.selectedLayer;
+
+    if (!(layer is BitmapLayer)) {
+      return;
+    }
+
     var position = data.position
         .translate((size ~/ -2).toDouble(), (size ~/ -2).toDouble());
 
     for (int i = 0; i < size; i++) {
       for (int j = 0; j < size; j++) {
-        target.setPixel(
+        layer.setPixel(
           data.primaryColor,
           position.dx.toInt() + i,
           position.dy.toInt() + j,
@@ -35,11 +39,19 @@ class Pen extends Tool {
       }
     }
 
+    layer.invalidate();
+
     _prevPosition = position;
   }
 
   @override
   void onMove(Document target, ToolData data) {
+    final layer = target.selectedLayer;
+
+    if (!(layer is BitmapLayer)) {
+      return;
+    }
+
     var position = data.position
         .translate((size ~/ -2).toDouble(), (size ~/ -2).toDouble());
 
@@ -51,7 +63,7 @@ class Pen extends Tool {
       (x, y) {
         for (int i = 0; i < size; i++) {
           for (int j = 0; j < size; j++) {
-            target.setPixel(
+            layer.setPixel(
               data.primaryColor,
               x + i,
               y + j,
@@ -60,6 +72,8 @@ class Pen extends Tool {
         }
       },
     );
+
+    layer.invalidate();
 
     _prevPosition = position;
   }

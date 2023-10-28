@@ -24,22 +24,6 @@ mixin _$Layer on _Layer, Store {
     });
   }
 
-  late final _$isRefreshedAtom =
-      Atom(name: '_Layer.isRefreshed', context: context);
-
-  @override
-  bool get isRefreshed {
-    _$isRefreshedAtom.reportRead();
-    return super.isRefreshed;
-  }
-
-  @override
-  set isRefreshed(bool value) {
-    _$isRefreshedAtom.reportWrite(value, super.isRefreshed, () {
-      super.isRefreshed = value;
-    });
-  }
-
   late final _$isVisibleAtom = Atom(name: '_Layer.isVisible', context: context);
 
   @override
@@ -59,7 +43,6 @@ mixin _$Layer on _Layer, Store {
   String toString() {
     return '''
 name: ${name},
-isRefreshed: ${isRefreshed},
 isVisible: ${isVisible}
     ''';
   }

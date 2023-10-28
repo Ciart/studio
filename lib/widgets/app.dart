@@ -51,9 +51,12 @@ class App extends StatelessWidget {
           create: (_) => ColorStore(),
         ),
         Provider(
-          create: (_) => ToolStore(),
+          create: (_) => ToolContainer(),
         ),
-        Provider(create: (_) => DocumentContainer()),
+        Provider<DocumentContainer>(
+          create: (_) => DocumentContainer(),
+          dispose: (context, value) => value.dispose(),
+        ),
       ],
       child: FluentApp(
         title: title,

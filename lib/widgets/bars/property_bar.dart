@@ -2,6 +2,7 @@ import 'package:ciart_studio/stores/tool_store.dart';
 import 'package:ciart_studio/tools/pen.dart';
 import 'package:ciart_studio/widgets/bars/pen_property.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:provider/provider.dart';
 
 class PropertyBar extends StatelessWidget {
@@ -11,21 +12,24 @@ class PropertyBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tool = context.read<ToolStore>().focusTool;
-
-    Widget child;
-
-    if (tool is Pen) {
-      child = PenProperty();
-    } else {
-      child = Container();
-    }
+    final toolContainer = context.read<ToolContainer>();
 
     return Container(
-        color: Color.fromARGB(255, 204, 207, 212),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: child,
-        ));
+      color: Color.fromARGB(255, 204, 207, 212),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Observer(
+          builder: (context) {
+            final tool = toolContainer.focusTool;
+
+            if (tool is Pen) {
+              return PenProperty();
+            } else {
+              return Container();
+            }
+          },
+        ),
+      ),
+    );
   }
 }

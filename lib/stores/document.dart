@@ -32,52 +32,81 @@ abstract class _Document with Store {
   @observable
   int selectLayerIndex = 0;
 
-  // set selectLayerIndex(int selectLayerIndex) {
-  //   _selectLayerIndex = selectLayerIndex;
-  //   notifyListeners();
-  // }
+  @computed
+  Layer get selectedLayer => layers[selectLayerIndex];
 
   @observable
   Picture? picture;
 
-  bool _isRefreshed = false;
-  bool _isDoing = false;
+  bool _isInvalidated = true;
 
-  late Ticker _ticker;
+  bool _isRendering = false;
+
+  late ReactionDisposer _reactionDisposer;
 
   _Document({required this.name, required this.width, required this.height}) {
     layers.add(
-      BitmapLayer(name: 'Layer 1', width: width, height: height),
+      BitmapLayer(
+        name: 'Layer 1',
+        width: width,
+        height: height,
+        onInvalidate: _invalidate,
+      ),
     );
     layers.add(
-      BitmapLayer(name: 'Layer 2', width: width, height: height),
+      BitmapLayer(
+        name: 'Layer 2',
+        width: width,
+        height: height,
+        onInvalidate: _invalidate,
+      ),
     );
     layers.add(
-      BitmapLayer(name: 'Layer 3', width: width, height: height),
+      BitmapLayer(
+        name: 'Layer 3',
+        width: width,
+        height: height,
+        onInvalidate: _invalidate,
+      ),
+    );
+  }
+
+  void update() async {
+    if (_isInvalidated && !_isRendering) {
+      _isInvalidated = false;
+      _isRendering = true;
+
+      await render();
+
+      _isRendering = false;
+    }
+  }
+
+  void dispose() {
+    _reactionDisposer();
+
+    for (final layer in layers) {
+      layer.dispose();
+    }
+  }
+
+  void _invalidate() {
+    _isInvalidated = true;
+  }
+
+  @action
+  void createBitmapLayer() {
+    layers.insert(
+      selectLayerIndex,
+      BitmapLayer(
+        name: 'Layer',
+        width: width,
+        height: height,
+        onInvalidate: _invalidate,
+      ),
     );
 
-    // TODO: 외부로 옮기기
-    _ticker = Ticker(
-      (duration) async {
-        if (!_isRefreshed) {
-          _isRefreshed = true;
-
-          if (!_isDoing) {
-            _isDoing = true;
-            await render();
-            _isDoing = false;
-          }
-        }
-      },
-    )..start();
-  }
-
-  void refresh() {
-    _isRefreshed = false;
-  }
-
-  setPixel(Color color, int x, int y) {
-    (layers[this.selectLayerIndex] as BitmapLayer).setPixel(color, x, y);
+    // _invalidate();
   }
 
   @action
@@ -89,7 +118,7 @@ abstract class _Document with Store {
     final layer = layers.removeAt(oldIndex);
     layers.insert(newIndex, layer);
 
-    refresh();
+    _invalidate();
   }
 
   @action
@@ -104,11 +133,7 @@ abstract class _Document with Store {
         continue;
       }
 
-      final layerImage = await layer.image;
-
-      if (layerImage == null) {
-        continue;
-      }
+      final layerImage = await layer.renderImage();
 
       canvas.drawImage(layerImage, Offset.zero, Paint());
     }

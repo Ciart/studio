@@ -9,9 +9,9 @@ import 'package:mobx/mobx.dart';
 
 part 'tool_store.g.dart';
 
-class ToolStore = _ToolStore with _$ToolStore;
+class ToolContainer = _ToolContainer with _$ToolContainer;
 
-abstract class _ToolStore with Store {
+abstract class _ToolContainer with Store {
   @observable
   int focusIndex = 0;
 

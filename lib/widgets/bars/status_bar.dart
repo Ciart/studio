@@ -8,7 +8,7 @@ class StatusBar extends StatelessWidget {
   Widget build(BuildContext context) {
     // var documentPosition = ref.watch(documentPositionProvider);
 
-    final toolStore = context.read<ToolStore>();
+    final toolStore = context.read<ToolContainer>();
 
     return Container(
       color: const Color(0xff888888),

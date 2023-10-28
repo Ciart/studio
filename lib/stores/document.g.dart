@@ -9,6 +9,14 @@ part of 'document.dart';
 // ignore_for_file: non_constant_identifier_names, unnecessary_brace_in_string_interps, unnecessary_lambdas, prefer_expression_function_bodies, lines_longer_than_80_chars, avoid_as, avoid_annotating_with_dynamic, no_leading_underscores_for_local_identifiers
 
 mixin _$Document on _Document, Store {
+  Computed<Layer>? _$selectedLayerComputed;
+
+  @override
+  Layer get selectedLayer =>
+      (_$selectedLayerComputed ??= Computed<Layer>(() => super.selectedLayer,
+              name: '_Document.selectedLayer'))
+          .value;
+
   late final _$nameAtom = Atom(name: '_Document.name', context: context);
 
   @override
@@ -127,6 +135,17 @@ mixin _$Document on _Document, Store {
       ActionController(name: '_Document', context: context);
 
   @override
+  void createBitmapLayer() {
+    final _$actionInfo = _$_DocumentActionController.startAction(
+        name: '_Document.createBitmapLayer');
+    try {
+      return super.createBitmapLayer();
+    } finally {
+      _$_DocumentActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void updateLayerIndex(int oldIndex, int newIndex) {
     final _$actionInfo = _$_DocumentActionController.startAction(
         name: '_Document.updateLayerIndex');
@@ -168,7 +187,8 @@ height: ${height},
 palette: ${palette},
 layers: ${layers},
 selectLayerIndex: ${selectLayerIndex},
-picture: ${picture}
+picture: ${picture},
+selectedLayer: ${selectedLayer}
     ''';
   }
 }

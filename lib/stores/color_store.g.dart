@@ -56,6 +56,22 @@ mixin _$ColorStore on _ColorStore, Store {
     });
   }
 
+  late final _$paletteAtom =
+      Atom(name: '_ColorStore.palette', context: context);
+
+  @override
+  ObservableList<Color> get palette {
+    _$paletteAtom.reportRead();
+    return super.palette;
+  }
+
+  @override
+  set palette(ObservableList<Color> value) {
+    _$paletteAtom.reportWrite(value, super.palette, () {
+      super.palette = value;
+    });
+  }
+
   late final _$_ColorStoreActionController =
       ActionController(name: '_ColorStore', context: context);
 
@@ -82,10 +98,33 @@ mixin _$ColorStore on _ColorStore, Store {
   }
 
   @override
+  void addColor(Color color) {
+    final _$actionInfo =
+        _$_ColorStoreActionController.startAction(name: '_ColorStore.addColor');
+    try {
+      return super.addColor(color);
+    } finally {
+      _$_ColorStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void swapColor(Color a, Color b) {
+    final _$actionInfo = _$_ColorStoreActionController.startAction(
+        name: '_ColorStore.swapColor');
+    try {
+      return super.swapColor(a, b);
+    } finally {
+      _$_ColorStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 primary: ${primary},
 secondary: ${secondary},
+palette: ${palette},
 primaryColor: ${primaryColor},
 secondaryColor: ${secondaryColor}
     ''';
