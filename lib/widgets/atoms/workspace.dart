@@ -203,6 +203,7 @@ class _WorkspaceState extends State<Workspace> {
                   height: widget.document.height,
                   offset: _offset,
                   scale: _scale,
+                  gridSize: 16,
                   updateOrigin: _updateOrigin,
                 ),
               ),
@@ -221,6 +222,7 @@ class _WorkspacePainter extends CustomPainter {
     required this.height,
     required this.offset,
     required this.scale,
+    required this.gridSize,
     required this.updateOrigin,
   }) : super();
 
@@ -229,8 +231,69 @@ class _WorkspacePainter extends CustomPainter {
   final int height;
   final Offset offset;
   final double scale;
+  final int gridSize;
 
   final void Function(Offset origin) updateOrigin;
+
+  void drawCheckPattern(Canvas canvas, Rect rect, double gridSize) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRect(rect, paint);
+
+    paint.color = Colors.grey[20];
+
+    for (int i = 0; i < rect.width / gridSize; i++) {
+      for (int j = 0; j < rect.height / gridSize; j++) {
+        if ((i + j) % 2 == 0) {
+          continue;
+        }
+
+        final cellRect = Rect.fromLTWH(
+          rect.left + i * gridSize,
+          rect.top + j * gridSize,
+          gridSize,
+          gridSize,
+        );
+
+        canvas.drawRect(cellRect, paint);
+      }
+    }
+  }
+
+  void drawPicture(Canvas canvas, Picture picture) {
+    canvas.save();
+    canvas.scale(scale);
+    canvas.translate(width / -2, height / -2);
+    canvas.drawPicture(picture);
+    canvas.restore();
+  }
+
+  void drawPixelGird(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.grey[60]
+      ..strokeWidth = 1;
+
+    canvas.save();
+
+    canvas.translate(-width / 2 * scale, -height / 2 * scale);
+
+    // TODO: size 변수에 따라 선이 선명하게 수정
+    for (int i = 1; i < width; i++) {
+      var x = (i * scale).floorToDouble() + 0.5;
+
+      canvas.drawLine(Offset(x, 0), Offset(x, height * scale), paint);
+    }
+
+    for (int i = 1; i < height; i++) {
+      var y = (i * scale).floorToDouble() + 0.5;
+
+      canvas.drawLine(Offset(0, y), Offset(width * scale, y), paint);
+    }
+
+    canvas.restore();
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -240,59 +303,31 @@ class _WorkspacePainter extends CustomPainter {
       return;
     }
 
-    // TODO: rect 이름 변경 + 최적화?
-    var paint = Paint();
-    var rect = Rect.fromCenter(
-      center: size.center(offset),
-      width: width * scale,
-      height: height * scale,
-    );
-    var center = rect.center;
+    final center = size.center(offset);
+    final origin =
+        Offset(center.dx - width / 2 * scale, center.dy - height / 2 * scale);
 
-    updateOrigin(rect.topLeft);
+    updateOrigin(origin);
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
-    canvas.drawColor(
-      const Color.fromARGB(64, 0, 0, 0),
-      BlendMode.srcOver,
-    );
 
-    canvas.drawRect(
+    drawCheckPattern(
+      canvas,
       Rect.fromLTWH(
         -width / 2 * scale,
         -height / 2 * scale,
         width.toDouble() * scale,
         height.toDouble() * scale,
       ),
-      Paint()..color = Color.fromARGB(255, 219, 219, 219),
+      this.gridSize * scale,
     );
 
-    canvas.save();
-    canvas.scale(scale);
-    canvas.translate(width / -2, height / -2);
-    canvas.drawPicture(picture);
-    canvas.restore();
+    drawPicture(canvas, picture);
 
-    //// TODO: Picture로 최적화 필요
-    // if (scale > 5) {
-    //   canvas.translate(-width / 2 * scale, -height / 2 * scale);
-    //   paint.color = Colors.black;
-    //   paint.strokeWidth = 1;
-
-    //   // TODO: size 변수에 따라 선이 선명하게 수정
-    //   for (int i = 1; i < width; i++) {
-    //     var x = (i * scale).floorToDouble() + 0.5;
-
-    //     canvas.drawLine(Offset(x, 0), Offset(x, height * scale), paint);
-    //   }
-
-    //   for (int i = 1; i < height; i++) {
-    //     var y = (i * scale).floorToDouble() + 0.5;
-
-    //     canvas.drawLine(Offset(0, y), Offset(width * scale, y), paint);
-    //   }
-    // }
+    if (scale > 10) {
+      drawPixelGird(canvas, size);
+    }
 
     canvas.restore();
   }

@@ -18,6 +18,6 @@ class WorkspacePanel extends StatelessWidget {
 
     assert(document != null, "Document is not found");
 
-    return Workspace(document: document!);
+    return Container(color: Colors.grey, child: Workspace(document: document!));
   }
 }
