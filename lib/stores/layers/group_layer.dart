@@ -6,59 +6,44 @@ import 'package:mobx/mobx.dart';
 
 import 'layer.dart';
 
-part 'bitmap_layer.g.dart';
+part 'group_layer.g.dart';
 
-class BitmapLayerSnapshot extends LayerSnapshot {
-  BitmapLayerSnapshot({
+class GroupLayerSnapshot extends LayerSnapshot {
+  GroupLayerSnapshot({
     required String name,
     required bool isVisible,
-    required this.width,
-    required this.height,
-    required this.pixels,
+    required this.children,
   }) : super(name: name, isVisible: isVisible);
 
-  BitmapLayerSnapshot.fromBitmapLayer(_BitmapLayer layer)
-      : width = layer.width,
-        height = layer.height,
-        pixels = Uint8List.fromList(layer._pixels),
+  GroupLayerSnapshot.fromGroupLayer(_GroupLayer layer)
+      : children = layer.children.map((layer) => layer.makeSnapshot()).toList(),
         super.fromLayer(layer);
 
-  final int width;
-  final int height;
-  final Uint8List pixels;
+  final List<LayerSnapshot> children;
 }
 
-class BitmapLayer = _BitmapLayer with _$BitmapLayer;
+class GroupLayer = _GroupLayer with _$GroupLayer;
 
-abstract class _BitmapLayer extends Layer with Store {
-  @observable
-  int width;
-
-  @observable
-  int height;
-
-  Uint8List _pixels;
-
-  _BitmapLayer({
+abstract class _GroupLayer extends Layer with Store {
+  _GroupLayer({
     required String name,
-    required this.width,
-    required this.height,
     Function? onInvalidate,
-  })  : _pixels = Uint8List(width * height * 4),
-        super(name: name, onInvalidate: onInvalidate);
+  }) : super(name: name, onInvalidate: onInvalidate);
+
+  @observable
+  ObservableList<Layer> children = ObservableList<Layer>();
 
   @override
-  BitmapLayerSnapshot makeSnapshot() {
-    return BitmapLayerSnapshot.fromBitmapLayer(this);
+  GroupLayerSnapshot makeSnapshot() {
+    return GroupLayerSnapshot.fromGroupLayer(this);
   }
 
   @override
   void restoreSnapshot(LayerSnapshot snapshot) {
     super.restoreSnapshot(snapshot);
 
-    if (snapshot is BitmapLayerSnapshot) {
-      width = snapshot.width;
-      height = snapshot.height;
+    if (snapshot is GroupLayerSnapshot) {
+      children = ObservableList.of(snapshot.children);
     }
   }
 

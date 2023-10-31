@@ -8,6 +8,48 @@ part of 'document.dart';
 
 // ignore_for_file: non_constant_identifier_names, unnecessary_brace_in_string_interps, unnecessary_lambdas, prefer_expression_function_bodies, lines_longer_than_80_chars, avoid_as, avoid_annotating_with_dynamic, no_leading_underscores_for_local_identifiers
 
+mixin _$DocumentHistory on _DocumentHistory, Store {
+  late final _$canUndoAtom =
+      Atom(name: '_DocumentHistory.canUndo', context: context);
+
+  @override
+  bool get canUndo {
+    _$canUndoAtom.reportRead();
+    return super.canUndo;
+  }
+
+  @override
+  set canUndo(bool value) {
+    _$canUndoAtom.reportWrite(value, super.canUndo, () {
+      super.canUndo = value;
+    });
+  }
+
+  late final _$canRedoAtom =
+      Atom(name: '_DocumentHistory.canRedo', context: context);
+
+  @override
+  bool get canRedo {
+    _$canRedoAtom.reportRead();
+    return super.canRedo;
+  }
+
+  @override
+  set canRedo(bool value) {
+    _$canRedoAtom.reportWrite(value, super.canRedo, () {
+      super.canRedo = value;
+    });
+  }
+
+  @override
+  String toString() {
+    return '''
+canUndo: ${canUndo},
+canRedo: ${canRedo}
+    ''';
+  }
+}
+
 mixin _$Document on _Document, Store {
   Computed<Layer>? _$selectedLayerComputed;
 
@@ -151,28 +193,6 @@ mixin _$Document on _Document, Store {
         name: '_Document.updateLayerIndex');
     try {
       return super.updateLayerIndex(oldIndex, newIndex);
-    } finally {
-      _$_DocumentActionController.endAction(_$actionInfo);
-    }
-  }
-
-  @override
-  void undo() {
-    final _$actionInfo =
-        _$_DocumentActionController.startAction(name: '_Document.undo');
-    try {
-      return super.undo();
-    } finally {
-      _$_DocumentActionController.endAction(_$actionInfo);
-    }
-  }
-
-  @override
-  void redo() {
-    final _$actionInfo =
-        _$_DocumentActionController.startAction(name: '_Document.redo');
-    try {
-      return super.redo();
     } finally {
       _$_DocumentActionController.endAction(_$actionInfo);
     }
