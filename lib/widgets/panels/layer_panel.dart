@@ -73,7 +73,8 @@ class _LayerPanelState extends State<LayerPanel> {
                                         }
                                       },
                                     ),
-                                    layer.thumbnail != null
+                                    // layer.thumbnail != null
+                                    false
                                         ? UiImage(
                                             image: layer.thumbnail!,
                                             width: 32,

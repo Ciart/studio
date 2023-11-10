@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:ciart_studio/stores/color_store.dart';
 import 'package:ciart_studio/stores/document_container.dart';
 import 'package:ciart_studio/stores/tool_store.dart';
@@ -66,36 +68,41 @@ class App extends StatelessWidget {
           brightness: Brightness.light,
           accentColor: Colors.teal,
         ),
-        home: Column(
-          children: [
-            TitleBar(),
-            Expanded(
-              child: MenuBar(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Consumer<Layout>(
-                        builder: (context, layout, child) {
-                          return Nabi(
-                            registeredWidgets: {
-                              'propertyBar': (context) => PropertyBar(),
-                              'toolBar': (context) => ToolBar(),
-                              'workspacePanel': (context) => WorkspacePanel(),
-                              'colorPicker': (context) => ColorPickerPanel(),
-                              'layerPanel': (context) => LayerPanel(),
-                              'palettePanel': (context) => PalettePanel(),
-                            },
-                            layout: layout,
-                          );
-                        },
+        home: Container(
+          color: Platform.isWindows || Platform.isMacOS
+              ? Colors.transparent
+              : Colors.white,
+          child: Column(
+            children: [
+              TitleBar(),
+              Expanded(
+                child: MenuBar(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Consumer<Layout>(
+                          builder: (context, layout, child) {
+                            return Nabi(
+                              registeredWidgets: {
+                                'propertyBar': (context) => PropertyBar(),
+                                'toolBar': (context) => ToolBar(),
+                                'workspacePanel': (context) => WorkspacePanel(),
+                                'colorPicker': (context) => ColorPickerPanel(),
+                                'layerPanel': (context) => LayerPanel(),
+                                'palettePanel': (context) => PalettePanel(),
+                              },
+                              layout: layout,
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    StatusBar(),
-                  ],
+                      StatusBar(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

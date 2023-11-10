@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:mobx/mobx.dart';
@@ -43,35 +42,22 @@ abstract class _GroupLayer extends Layer with Store {
     super.restoreSnapshot(snapshot);
 
     if (snapshot is GroupLayerSnapshot) {
-      children = ObservableList.of(snapshot.children);
+      // children = ObservableList.of(snapshot.children);
     }
-  }
-
-  void setPixel(Color color, int x, int y) {
-    if (x < 0 || y < 0 || x >= width || y >= height) {
-      return;
-    }
-
-    var targetIndex = (y * width + x) * 4;
-
-    _pixels[targetIndex] = color.red;
-    _pixels[targetIndex + 1] = color.green;
-    _pixels[targetIndex + 2] = color.blue;
-    _pixels[targetIndex + 3] = color.alpha;
   }
 
   @override
   Future<Image> render() async {
-    var completer = Completer<Image>();
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder);
 
-    decodeImageFromPixels(
-      _pixels,
-      width,
-      height,
-      PixelFormat.rgba8888,
-      completer.complete,
-    );
+    for (final child in children) {
+      final image = await child.render();
+      canvas.drawImage(image, Offset.zero, Paint());
+    }
 
-    return await completer.future;
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(100, 100);
+    return image;
   }
 }

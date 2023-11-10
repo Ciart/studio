@@ -7,10 +7,16 @@ import 'widgets/app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Window.initialize();
-  runApp(App());
 
-  await Window.setEffect(effect: WindowEffect.mica, dark: false);
+  if (Platform.isWindows || Platform.isMacOS) {
+    await Window.initialize();
+
+    runApp(App());
+
+    await Window.setEffect(effect: WindowEffect.mica, dark: false);
+  } else {
+    runApp(App());
+  }
 
   if (Platform.isMacOS) {
     Window.overrideMacOSBrightness(

@@ -53,6 +53,10 @@ class _WorkspaceState extends State<Workspace> {
     final tool = toolStore.focusTool;
     final primaryColor = colorStore.primaryColor;
 
+    if (event.kind == PointerDeviceKind.touch) {
+      return;
+    }
+
     if (event.buttons & kSecondaryButton != 0) {
       setState(() {
         _prevLocalPosition = event.localPosition;
@@ -79,6 +83,10 @@ class _WorkspaceState extends State<Workspace> {
     final tool = toolStore.focusTool;
     final primaryColor = colorStore.primaryColor;
 
+    if (event.kind == PointerDeviceKind.touch) {
+      return;
+    }
+
     if (event.buttons & kSecondaryButton != 0) {
       setState(() {
         _offset += event.localPosition - _prevLocalPosition;
@@ -102,6 +110,10 @@ class _WorkspaceState extends State<Workspace> {
 
     final tool = toolStore.focusTool;
     final primaryColor = colorStore.primaryColor;
+
+    if (event.kind == PointerDeviceKind.touch) {
+      return;
+    }
 
     var position = _computeDocumentPosition(event.localPosition);
 
@@ -132,18 +144,22 @@ class _WorkspaceState extends State<Workspace> {
 
   var _trackpadZoomOffset = 1.0;
 
-  void _onPointerPanZoomStart(PointerPanZoomStartEvent event) {
+  void _onPointerPanZoomStart(ScaleStartDetails event) {
     setState(() {
       _trackpadZoomOffset = 1.0;
     });
   }
 
-  void _onPointerPanZoomUpdate(PointerPanZoomUpdateEvent event) {
+  void _onPointerPanZoomUpdate(ScaleUpdateDetails event) {
+    // if (event.pointerCount != 2) {
+    //   return;
+    // }
+
     setState(() {
-      _offset += event.panDelta;
+      _offset += event.focalPointDelta;
 
       const minScale = 0.5;
-      const maxScale = 5.0;
+      const maxScale = 1000.0;
 
       _trackpadZoomOffset = event.scale;
 
@@ -155,14 +171,14 @@ class _WorkspaceState extends State<Workspace> {
         trackpadZoomScale = maxScale;
       }
 
-      _scale = trackpadZoomScale * trackpadZoomScale * trackpadZoomScale;
+      _scale = trackpadZoomScale;
     });
   }
 
-  void _onPointerPanZoomEnd(PointerPanZoomEndEvent event) {
+  void _onPointerPanZoomEnd(ScaleEndDetails event) {
     setState(() {
       const minScale = 0.5;
-      const maxScale = 5.0;
+      const maxScale = 1000.0;
 
       _rawScale *= _trackpadZoomOffset;
 
@@ -172,7 +188,7 @@ class _WorkspaceState extends State<Workspace> {
         _rawScale = maxScale;
       }
 
-      _scale = _rawScale * _rawScale * _rawScale;
+      _scale = _rawScale;
     });
   }
 
@@ -190,25 +206,43 @@ class _WorkspaceState extends State<Workspace> {
         onPointerMove: _onPointerMove,
         onPointerUp: _onPointerUp,
         onPointerSignal: _onPointerSignal,
-        onPointerPanZoomStart: _onPointerPanZoomStart,
-        onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
-        onPointerPanZoomEnd: _onPointerPanZoomEnd,
-        child: RepaintBoundary(
-          child: ClipRect(
-            child: Observer(
-              builder: (context) => CustomPaint(
-                painter: _WorkspacePainter(
-                  picture: widget.document.picture,
-                  width: widget.document.width,
-                  height: widget.document.height,
-                  offset: _offset,
-                  scale: _scale,
-                  gridSize: 16,
-                  updateOrigin: _updateOrigin,
+        // onPointerPanZoomStart: _onPointerPanZoomStart,
+        // onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
+        // onPointerPanZoomEnd: _onPointerPanZoomEnd,
+        child: RawGestureDetector(
+          child: RepaintBoundary(
+            child: ClipRect(
+              child: Observer(
+                builder: (context) => CustomPaint(
+                  painter: _WorkspacePainter(
+                    picture: widget.document.picture,
+                    width: widget.document.width,
+                    height: widget.document.height,
+                    offset: _offset,
+                    scale: _scale,
+                    gridSize: 16,
+                    updateOrigin: _updateOrigin,
+                  ),
                 ),
               ),
             ),
           ),
+          gestures: {
+            ScaleGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<ScaleGestureRecognizer>(
+              () => ScaleGestureRecognizer(
+                supportedDevices: {
+                  PointerDeviceKind.touch,
+                  PointerDeviceKind.trackpad
+                },
+              ),
+              (instance) {
+                instance.onStart = _onPointerPanZoomStart;
+                instance.onUpdate = _onPointerPanZoomUpdate;
+                instance.onEnd = _onPointerPanZoomEnd;
+              },
+            ),
+          },
         ),
       ),
     );
@@ -273,7 +307,7 @@ class _WorkspacePainter extends CustomPainter {
   void drawPixelGird(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = Colors.grey[60]
-      ..strokeWidth = 1;
+      ..strokeWidth = 0.5;
 
     canvas.save();
 
@@ -281,13 +315,13 @@ class _WorkspacePainter extends CustomPainter {
 
     // TODO: size 변수에 따라 선이 선명하게 수정
     for (int i = 1; i < width; i++) {
-      var x = (i * scale).floorToDouble() + 0.5;
+      var x = (i * scale) + 0.5;
 
       canvas.drawLine(Offset(x, 0), Offset(x, height * scale), paint);
     }
 
     for (int i = 1; i < height; i++) {
-      var y = (i * scale).floorToDouble() + 0.5;
+      var y = (i * scale) + 0.5;
 
       canvas.drawLine(Offset(0, y), Offset(width * scale, y), paint);
     }
