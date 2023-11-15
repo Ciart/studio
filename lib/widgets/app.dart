@@ -66,7 +66,7 @@ class App extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: FluentThemeData(
           brightness: Brightness.light,
-          accentColor: Colors.teal,
+          accentColor: Colors.black.toAccentColor(),
         ),
         home: Container(
           color: Platform.isWindows || Platform.isMacOS

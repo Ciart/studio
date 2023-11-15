@@ -6,21 +6,22 @@ import 'package:provider/provider.dart';
 class StatusBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    // var documentPosition = ref.watch(documentPositionProvider);
-
     final toolStore = context.read<ToolContainer>();
 
     return Container(
-      color: const Color(0xff888888),
+      color: const Color(0xffd1d8dc),
       width: double.infinity,
-      child: Row(
-        children: [
-          Observer(
-            builder: (context) => Text(
-              "(${toolStore.position.dx.floor()}, ${toolStore.position.dy.floor()})",
+      child: Padding(
+        padding: const EdgeInsets.all(4.0),
+        child: Row(
+          children: [
+            Observer(
+              builder: (context) => Text(
+                "${toolStore.position.dx.floor()}, ${toolStore.position.dy.floor()}",
+              ),
             ),
-          )
-        ],
+          ],
+        ),
       ),
     );
   }

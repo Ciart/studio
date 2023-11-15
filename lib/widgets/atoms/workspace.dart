@@ -346,16 +346,16 @@ class _WorkspacePainter extends CustomPainter {
     canvas.save();
     canvas.translate(center.dx, center.dy);
 
-    drawCheckPattern(
-      canvas,
-      Rect.fromLTWH(
-        -width / 2 * scale,
-        -height / 2 * scale,
-        width.toDouble() * scale,
-        height.toDouble() * scale,
-      ),
-      this.gridSize * scale,
+    final rect = Rect.fromLTWH(
+      -width / 2 * scale,
+      -height / 2 * scale,
+      width.toDouble() * scale,
+      height.toDouble() * scale,
     );
+    
+    canvas.drawShadow(Path()..addRect(rect), Colors.black, 4, false);
+
+    drawCheckPattern(canvas, rect, this.gridSize * scale);
 
     drawPicture(canvas, picture);
 
