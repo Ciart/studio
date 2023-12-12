@@ -49,19 +49,19 @@ class _LayerPanelState extends State<LayerPanel> {
                         ReorderableDragStartListener(
                       key: ValueKey(document.layers[index]),
                       index: index,
-                      child: GestureDetector(
-                        onTap: () {
-                          document.selectLayerIndex = index;
-                        },
-                        child: Container(
-                          color: index == document.selectLayerIndex
-                              ? Colors.white
-                              : Colors.transparent,
-                          child: Observer(
-                            builder: (context) {
-                              final layer = document.layers[index];
+                      child: Observer(
+                        builder: (context) {
+                          final layer = document.layers[index];
 
-                              return Padding(
+                          return GestureDetector(
+                            onTap: () {
+                              document.selectLayerIndex = index;
+                            },
+                            child: Container(
+                              color: index == document.selectLayerIndex
+                                  ? Colors.white
+                                  : Colors.transparent,
+                              child: Padding(
                                 padding: const EdgeInsets.all(8.0),
                                 child: Row(
                                   children: [
@@ -86,10 +86,10 @@ class _LayerPanelState extends State<LayerPanel> {
                                     ),
                                   ],
                                 ),
-                              );
-                            },
-                          ),
-                        ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     onReorder: document.updateLayerIndex,

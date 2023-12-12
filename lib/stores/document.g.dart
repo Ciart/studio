@@ -51,6 +51,12 @@ canRedo: ${canRedo}
 }
 
 mixin _$Document on _Document, Store {
+  Computed<String>? _$titleComputed;
+
+  @override
+  String get title => (_$titleComputed ??=
+          Computed<String>(() => super.title, name: '_Document.title'))
+      .value;
   Computed<Layer>? _$selectedLayerComputed;
 
   @override
@@ -59,18 +65,18 @@ mixin _$Document on _Document, Store {
               name: '_Document.selectedLayer'))
           .value;
 
-  late final _$nameAtom = Atom(name: '_Document.name', context: context);
+  late final _$pathAtom = Atom(name: '_Document.path', context: context);
 
   @override
-  String get name {
-    _$nameAtom.reportRead();
-    return super.name;
+  String? get path {
+    _$pathAtom.reportRead();
+    return super.path;
   }
 
   @override
-  set name(String value) {
-    _$nameAtom.reportWrite(value, super.name, () {
-      super.name = value;
+  set path(String? value) {
+    _$pathAtom.reportWrite(value, super.path, () {
+      super.path = value;
     });
   }
 
@@ -177,11 +183,11 @@ mixin _$Document on _Document, Store {
       ActionController(name: '_Document', context: context);
 
   @override
-  void createBitmapLayer() {
+  void createBitmapLayer({Uint8List? pixels}) {
     final _$actionInfo = _$_DocumentActionController.startAction(
         name: '_Document.createBitmapLayer');
     try {
-      return super.createBitmapLayer();
+      return super.createBitmapLayer(pixels: pixels);
     } finally {
       _$_DocumentActionController.endAction(_$actionInfo);
     }
@@ -201,13 +207,14 @@ mixin _$Document on _Document, Store {
   @override
   String toString() {
     return '''
-name: ${name},
+path: ${path},
 width: ${width},
 height: ${height},
 palette: ${palette},
 layers: ${layers},
 selectLayerIndex: ${selectLayerIndex},
 picture: ${picture},
+title: ${title},
 selectedLayer: ${selectedLayer}
     ''';
   }

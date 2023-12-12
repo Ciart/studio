@@ -13,7 +13,6 @@ class NewDocumentDialog extends StatefulWidget {
 }
 
 class _NewDocumentDialogState extends State<NewDocumentDialog> {
-  late TextEditingController _nameController;
   late TextEditingController _widthController;
   late TextEditingController _heightController;
 
@@ -21,7 +20,6 @@ class _NewDocumentDialogState extends State<NewDocumentDialog> {
   void initState() {
     super.initState();
 
-    _nameController = TextEditingController(text: "무제");
     _widthController = TextEditingController(text: "128");
     _heightController = TextEditingController(text: "128");
   }
@@ -33,10 +31,6 @@ class _NewDocumentDialogState extends State<NewDocumentDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          InfoLabel(
-            label: '이름',
-            child: TextBox(controller: _nameController),
-          ),
           InfoLabel(
             label: '너비',
             child: TextBox(controller: _widthController),
@@ -51,10 +45,11 @@ class _NewDocumentDialogState extends State<NewDocumentDialog> {
         Button(
           onPressed: () {
             final document = Document(
-              name: _nameController.text,
               width: int.parse(_widthController.text),
               height: int.parse(_heightController.text),
             );
+
+            document.createBitmapLayer();
 
             context.read<DocumentContainer>().add(document);
 
@@ -64,13 +59,13 @@ class _NewDocumentDialogState extends State<NewDocumentDialog> {
               'workspace',
               LayoutWidget(
                 name: 'workspacePanel',
-                title: _nameController.text,
+                title: document.title,
                 arguments: document.id,
               ),
             );
             Navigator.pop(context);
           },
-          child: const Text('Ok'),
+          child: const Text('확인'),
         )
       ],
     );

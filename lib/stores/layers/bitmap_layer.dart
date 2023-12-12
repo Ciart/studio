@@ -43,8 +43,9 @@ abstract class _BitmapLayer extends Layer with Store {
     required String name,
     required this.width,
     required this.height,
+    Uint8List? pixels,
     Function? onInvalidate,
-  })  : _pixels = Uint8List(width * height * 4),
+  })  : _pixels = pixels ?? Uint8List(width * height * 4),
         super(name: name, onInvalidate: onInvalidate);
 
   @override

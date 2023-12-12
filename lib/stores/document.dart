@@ -1,7 +1,10 @@
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:mobx/mobx.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
+import 'package:image/image.dart' as img;
 
 import 'layers/layer.dart';
 import 'layers/bitmap_layer.dart';
@@ -59,7 +62,10 @@ abstract class _Document with Store {
   late final DocumentHistory history;
 
   @observable
-  String name;
+  String? path;
+
+  @computed
+  String get title => path != null ? p.basename(path!) : 'Untitled';
 
   @observable
   int width;
@@ -88,33 +94,8 @@ abstract class _Document with Store {
 
   late ReactionDisposer _reactionDisposer;
 
-  _Document({required this.name, required this.width, required this.height}) {
+  _Document({this.path, required this.width, required this.height}) {
     history = DocumentHistory(this);
-
-    layers.add(
-      BitmapLayer(
-        name: 'Layer 1',
-        width: width,
-        height: height,
-        onInvalidate: _invalidate,
-      ),
-    );
-    layers.add(
-      BitmapLayer(
-        name: 'Layer 2',
-        width: width,
-        height: height,
-        onInvalidate: _invalidate,
-      ),
-    );
-    layers.add(
-      BitmapLayer(
-        name: 'Layer 3',
-        width: width,
-        height: height,
-        onInvalidate: _invalidate,
-      ),
-    );
   }
 
   void update() async {
@@ -141,18 +122,19 @@ abstract class _Document with Store {
   }
 
   @action
-  void createBitmapLayer() {
+  void createBitmapLayer({Uint8List? pixels}) {
     layers.insert(
       selectLayerIndex,
       BitmapLayer(
-        name: 'Layer',
+        name: '레이어',
         width: width,
         height: height,
+        pixels: pixels,
         onInvalidate: _invalidate,
       ),
     );
 
-    // _invalidate();
+    _invalidate();
   }
 
   @action
@@ -165,6 +147,28 @@ abstract class _Document with Store {
     layers.insert(newIndex, layer);
 
     _invalidate();
+  }
+
+  void save() async {
+    if (path == null) {
+      throw Exception('Path is null');
+    }
+
+    final uiImage = await picture?.toImage(width, height);
+
+    if (uiImage == null) {
+      throw Exception('Failed to convert picture to image');
+    }
+
+    img.encodePngFile(
+      path!,
+      img.Image.fromBytes(
+        width: width,
+        height: height,
+        bytes: (await uiImage.toByteData())!.buffer,
+        numChannels: 4,
+      ),
+    );
   }
 
   @action
