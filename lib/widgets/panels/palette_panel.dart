@@ -24,7 +24,7 @@ class _PalettePanelState extends State<PalettePanel> {
               onPressed: () {
                 colorStore.addColor(colorStore.primaryColor);
               },
-            )
+            ),
           ],
         ),
         Expanded(

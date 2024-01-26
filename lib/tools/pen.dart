@@ -1,9 +1,8 @@
-import 'dart:ui';
-
 import 'package:ciart_studio/stores/document.dart';
 import 'package:ciart_studio/stores/layers/bitmap_layer.dart';
 import 'package:ciart_studio/tools/tool.dart';
 import 'package:ciart_studio/utilities/plot.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:mobx/mobx.dart';
 
 part 'pen.g.dart';
@@ -11,7 +10,7 @@ part 'pen.g.dart';
 class Pen = _Pen with _$Pen;
 
 abstract class _Pen extends Tool with Store {
-  _Pen({this.size = 1}) : super(ToolId.pen, 'Pen');
+  _Pen({this.size = 1}) : super(ToolId.pen, 'Pen', FluentIcons.edit);
 
   @observable
   int size;

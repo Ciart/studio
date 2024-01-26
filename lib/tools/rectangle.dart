@@ -3,9 +3,11 @@ import 'dart:ui';
 import 'package:ciart_studio/stores/document.dart';
 import 'package:ciart_studio/stores/layers/bitmap_layer.dart';
 import 'package:ciart_studio/tools/tool.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 
 class Rectangle extends Tool {
-  Rectangle() : super(ToolId.rectangle, 'Rectangle');
+  Rectangle()
+      : super(ToolId.rectangle, 'Rectangle', FluentIcons.rectangle_shape);
 
   Offset _startPosition = Offset.zero;
 

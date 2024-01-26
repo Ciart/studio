@@ -13,6 +13,7 @@ import 'package:ciart_studio/widgets/panels/palette_panel.dart';
 import 'package:ciart_studio/widgets/panels/workspace_panel.dart';
 import 'package:ciart_studio/widgets/bars/title_bar.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:nabi/nabi.dart';
 import 'package:provider/provider.dart';
 
@@ -21,6 +22,11 @@ const title = 'Ciart Studio';
 class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: [SystemUiOverlay.top],
+    );
+
     return MultiProvider(
       providers: [
         Provider(
@@ -30,10 +36,10 @@ class App extends StatelessWidget {
               children: [
                 LayoutWidget(name: 'propertyBar', size: 1),
                 LayoutFlex(
-                  size: 18,
+                  size: 12,
                   direction: Axis.horizontal,
                   children: [
-                    LayoutWidget(name: 'toolBar', size: 1),
+                    LayoutWidget(name: 'toolBar', size: 56, isFlex: false),
                     LayoutStack(id: 'workspace', size: 4, children: []),
                     LayoutFlex(
                       children: [
@@ -62,46 +68,51 @@ class App extends StatelessWidget {
       ],
       child: FluentApp(
         title: title,
-        color: const Color(0xFFFFFFFF),
+        // color: Color.fromARGB(255, 0, 0, 0),
         debugShowCheckedModeBanner: false,
         theme: FluentThemeData(
-          brightness: Brightness.light,
-          accentColor: Colors.black.toAccentColor(),
+          brightness: Brightness.dark,
+          accentColor: Colors.blue,
         ),
         home: Container(
           color: Platform.isWindows || Platform.isMacOS
               ? Colors.transparent
-              : Colors.white,
-          child: Column(
-            children: [
-              TitleBar(),
-              Expanded(
-                child: MenuBar(
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Consumer<Layout>(
-                          builder: (context, layout, child) {
-                            return Nabi(
-                              registeredWidgets: {
-                                'propertyBar': (context) => PropertyBar(),
-                                'toolBar': (context) => ToolBar(),
-                                'workspacePanel': (context) => WorkspacePanel(),
-                                'colorPicker': (context) => ColorPickerPanel(),
-                                'layerPanel': (context) => LayerPanel(),
-                                'palettePanel': (context) => PalettePanel(),
-                              },
-                              layout: layout,
-                            );
-                          },
+              : Colors.grey[180],
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                TitleBar(),
+                Expanded(
+                  child: MenuBar(
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Consumer<Layout>(
+                            builder: (context, layout, child) {
+                              return Nabi(
+                                registeredWidgets: {
+                                  'propertyBar': (context) => PropertyBar(),
+                                  'toolBar': (context) => ToolBar(),
+                                  'workspacePanel': (context) =>
+                                      WorkspacePanel(),
+                                  'colorPicker': (context) =>
+                                      ColorPickerPanel(),
+                                  'layerPanel': (context) => LayerPanel(),
+                                  'palettePanel': (context) => PalettePanel(),
+                                },
+                                layout: layout,
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      StatusBar(),
-                    ],
+                        StatusBar(),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

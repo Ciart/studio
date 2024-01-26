@@ -34,6 +34,10 @@ abstract class _ToolContainer with Store {
     focusIndex = index;
   }
 
+  int getToolIndex(Tool tool) {
+    return tools.indexWhere((element) => element == tool);
+  }
+
   @action
   void setPosition(Offset position) {
     this.position = position;

@@ -1,17 +1,18 @@
 import 'package:ciart_studio/stores/tool_store.dart';
+import 'package:ciart_studio/tools/eraser.dart';
 import 'package:ciart_studio/tools/pen.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:provider/provider.dart';
 
-class PenProperty extends StatelessWidget {
-  const PenProperty({Key? key}) : super(key: key);
+class EraserProperty extends StatelessWidget {
+  const EraserProperty({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final tool = context.read<ToolContainer>().focusTool;
 
-    if (tool is! Pen) {
+    if (tool is! Eraser) {
       return Container();
     }
 

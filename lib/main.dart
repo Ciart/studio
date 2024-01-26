@@ -13,14 +13,14 @@ Future<void> main() async {
 
     runApp(App());
 
-    await Window.setEffect(effect: WindowEffect.mica, dark: false);
+    await Window.setEffect(effect: WindowEffect.mica, dark: true);
   } else {
     runApp(App());
   }
 
   if (Platform.isMacOS) {
     Window.overrideMacOSBrightness(
-      dark: false,
+      dark: true,
     );
   }
 }

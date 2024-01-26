@@ -4,6 +4,8 @@ import 'package:ciart_studio/stores/color_store.dart';
 import 'package:ciart_studio/stores/document.dart';
 import 'package:ciart_studio/stores/document_container.dart';
 import 'package:ciart_studio/stores/tool_store.dart';
+import 'package:ciart_studio/tools/eraser.dart';
+import 'package:ciart_studio/tools/pen.dart';
 import 'package:ciart_studio/tools/tool.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/gestures.dart';
@@ -64,6 +66,7 @@ class _WorkspaceState extends State<Workspace> {
     }
 
     var position = _computeDocumentPosition(event.localPosition);
+    toolStore.setPosition(position);
 
     if (event.buttons & kPrimaryButton != 0) {
       tool.onPress(
@@ -95,6 +98,7 @@ class _WorkspaceState extends State<Workspace> {
     }
 
     var position = _computeDocumentPosition(event.localPosition);
+    toolStore.setPosition(position);
 
     if (event.buttons & kPrimaryButton != 0) {
       tool.onMove(
@@ -116,6 +120,7 @@ class _WorkspaceState extends State<Workspace> {
     }
 
     var position = _computeDocumentPosition(event.localPosition);
+    toolStore.setPosition(position);
 
     tool.onRelease(
       widget.document,
@@ -196,8 +201,20 @@ class _WorkspaceState extends State<Workspace> {
     _origin = origin;
   }
 
+  int _getCursorSize(Tool tool) {
+    if (tool is Pen) {
+      return tool.size;
+    } else if (tool is Eraser) {
+      return tool.size;
+    }
+
+    return 1;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final toolStore = context.read<ToolContainer>();
+
     return ConstrainedBox(
       constraints: BoxConstraints.expand(),
       child: Listener(
@@ -222,6 +239,8 @@ class _WorkspaceState extends State<Workspace> {
                     scale: _scale,
                     gridSize: 16,
                     updateOrigin: _updateOrigin,
+                    cursorPosition: toolStore.position,
+                    cursorSize: _getCursorSize(toolStore.focusTool),
                   ),
                 ),
               ),
@@ -258,6 +277,8 @@ class _WorkspacePainter extends CustomPainter {
     required this.scale,
     required this.gridSize,
     required this.updateOrigin,
+    required this.cursorPosition,
+    required this.cursorSize,
   }) : super();
 
   final Picture? picture;
@@ -266,6 +287,8 @@ class _WorkspacePainter extends CustomPainter {
   final Offset offset;
   final double scale;
   final int gridSize;
+  final Offset cursorPosition;
+  final int cursorSize;
 
   final void Function(Offset origin) updateOrigin;
 
@@ -301,6 +324,18 @@ class _WorkspacePainter extends CustomPainter {
     canvas.scale(scale);
     canvas.translate(width / -2, height / -2);
     canvas.drawPicture(picture);
+
+    final paint = Paint();
+
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: this.cursorPosition,
+        width: this.cursorSize.toDouble(),
+        height: this.cursorSize.toDouble(),
+      ),
+      paint,
+    );
+
     canvas.restore();
   }
 
@@ -352,7 +387,7 @@ class _WorkspacePainter extends CustomPainter {
       width.toDouble() * scale,
       height.toDouble() * scale,
     );
-    
+
     canvas.drawShadow(Path()..addRect(rect), Colors.black, 4, false);
 
     drawCheckPattern(canvas, rect, this.gridSize * scale);

@@ -4,9 +4,10 @@ import 'package:ciart_studio/stores/document.dart';
 import 'package:ciart_studio/stores/layers/bitmap_layer.dart';
 import 'package:ciart_studio/tools/tool.dart';
 import 'package:ciart_studio/utilities/plot.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 
 class Line extends Tool {
-  Line() : super(ToolId.line, 'Line');
+  Line() : super(ToolId.line, 'Line', FluentIcons.line);
 
   Offset _startPosition = Offset.zero;
 
