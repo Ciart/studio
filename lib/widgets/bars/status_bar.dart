@@ -9,10 +9,10 @@ class StatusBar extends StatelessWidget {
     final toolStore = context.read<ToolContainer>();
 
     return Container(
-      color: const Color(0xffd1d8dc),
+      color: Colors.grey[160],
       width: double.infinity,
       child: Padding(
-        padding: const EdgeInsets.all(4.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
         child: Row(
           children: [
             Observer(

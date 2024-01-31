@@ -27,6 +27,7 @@ class _WorkspaceState extends State<Workspace> {
   var _scale = 1.0;
   var _prevLocalPosition = Offset.zero;
   var _origin = Offset.zero;
+  var _showCursor = true;
 
   @override
   void initState() {
@@ -45,6 +46,10 @@ class _WorkspaceState extends State<Workspace> {
 
   void _onPointerHover(PointerHoverEvent event) {
     _updateDocumentPosition(event.localPosition);
+
+    setState(() {
+      _showCursor = true;
+    });
   }
 
   void _onPointerDown(PointerDownEvent event) {
@@ -152,6 +157,7 @@ class _WorkspaceState extends State<Workspace> {
   void _onPointerPanZoomStart(ScaleStartDetails event) {
     setState(() {
       _trackpadZoomOffset = 1.0;
+      _showCursor = false;
     });
   }
 
@@ -215,53 +221,56 @@ class _WorkspaceState extends State<Workspace> {
   Widget build(BuildContext context) {
     final toolStore = context.read<ToolContainer>();
 
-    return ConstrainedBox(
-      constraints: BoxConstraints.expand(),
-      child: Listener(
-        onPointerHover: _onPointerHover,
-        onPointerDown: _onPointerDown,
-        onPointerMove: _onPointerMove,
-        onPointerUp: _onPointerUp,
-        onPointerSignal: _onPointerSignal,
-        // onPointerPanZoomStart: _onPointerPanZoomStart,
-        // onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
-        // onPointerPanZoomEnd: _onPointerPanZoomEnd,
-        child: RawGestureDetector(
-          child: RepaintBoundary(
-            child: ClipRect(
-              child: Observer(
-                builder: (context) => CustomPaint(
-                  painter: _WorkspacePainter(
-                    picture: widget.document.picture,
-                    width: widget.document.width,
-                    height: widget.document.height,
-                    offset: _offset,
-                    scale: _scale,
-                    gridSize: 16,
-                    updateOrigin: _updateOrigin,
-                    cursorPosition: toolStore.position,
-                    cursorSize: _getCursorSize(toolStore.focusTool),
+    return MouseRegion(
+      cursor: _showCursor ? SystemMouseCursors.none : SystemMouseCursors.basic,
+      child: SizedBox.expand(
+        child: Listener(
+          onPointerHover: _onPointerHover,
+          onPointerDown: _onPointerDown,
+          onPointerMove: _onPointerMove,
+          onPointerUp: _onPointerUp,
+          onPointerSignal: _onPointerSignal,
+          // onPointerPanZoomStart: _onPointerPanZoomStart,
+          // onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
+          // onPointerPanZoomEnd: _onPointerPanZoomEnd,
+          child: RawGestureDetector(
+            child: RepaintBoundary(
+              child: ClipRect(
+                child: Observer(
+                  builder: (context) => CustomPaint(
+                    painter: _WorkspacePainter(
+                      picture: widget.document.picture,
+                      width: widget.document.width,
+                      height: widget.document.height,
+                      offset: _offset,
+                      scale: _scale,
+                      gridSize: 16,
+                      updateOrigin: _updateOrigin,
+                      showCursor: _showCursor,
+                      cursorPosition: toolStore.position,
+                      cursorSize: _getCursorSize(toolStore.focusTool),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          gestures: {
-            ScaleGestureRecognizer:
-                GestureRecognizerFactoryWithHandlers<ScaleGestureRecognizer>(
-              () => ScaleGestureRecognizer(
-                supportedDevices: {
-                  PointerDeviceKind.touch,
-                  PointerDeviceKind.trackpad
+            gestures: {
+              ScaleGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<ScaleGestureRecognizer>(
+                () => ScaleGestureRecognizer(
+                  supportedDevices: {
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.trackpad,
+                  },
+                ),
+                (instance) {
+                  instance.onStart = _onPointerPanZoomStart;
+                  instance.onUpdate = _onPointerPanZoomUpdate;
+                  instance.onEnd = _onPointerPanZoomEnd;
                 },
               ),
-              (instance) {
-                instance.onStart = _onPointerPanZoomStart;
-                instance.onUpdate = _onPointerPanZoomUpdate;
-                instance.onEnd = _onPointerPanZoomEnd;
-              },
-            ),
-          },
+            },
+          ),
         ),
       ),
     );
@@ -277,6 +286,7 @@ class _WorkspacePainter extends CustomPainter {
     required this.scale,
     required this.gridSize,
     required this.updateOrigin,
+    required this.showCursor,
     required this.cursorPosition,
     required this.cursorSize,
   }) : super();
@@ -287,6 +297,7 @@ class _WorkspacePainter extends CustomPainter {
   final Offset offset;
   final double scale;
   final int gridSize;
+  final bool showCursor;
   final Offset cursorPosition;
   final int cursorSize;
 
@@ -325,16 +336,18 @@ class _WorkspacePainter extends CustomPainter {
     canvas.translate(width / -2, height / -2);
     canvas.drawPicture(picture);
 
-    final paint = Paint();
+    if (showCursor) {
+      final paint = Paint()..style = PaintingStyle.stroke;
 
-    canvas.drawRect(
-      Rect.fromCenter(
-        center: this.cursorPosition,
-        width: this.cursorSize.toDouble(),
-        height: this.cursorSize.toDouble(),
-      ),
-      paint,
-    );
+      canvas.drawRect(
+        Rect.fromCenter(
+          center: this.cursorPosition,
+          width: this.cursorSize.toDouble(),
+          height: this.cursorSize.toDouble(),
+        ),
+        paint,
+      );
+    }
 
     canvas.restore();
   }

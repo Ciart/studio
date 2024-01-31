@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:ciart_studio/tools/ellipse.dart';
 import 'package:ciart_studio/tools/eraser.dart';
 import 'package:ciart_studio/tools/line.dart';
 import 'package:ciart_studio/tools/pen.dart';
@@ -25,8 +26,9 @@ abstract class _ToolContainer with Store {
   ObservableList<Tool> tools = ObservableList.of([
     Pen(),
     Eraser(),
-    Rectangle(),
     Line(),
+    Rectangle(),
+    Ellipse(),
   ]);
 
   @action

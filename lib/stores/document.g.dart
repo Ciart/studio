@@ -156,6 +156,22 @@ mixin _$Document on _Document, Store {
     });
   }
 
+  late final _$previewLayerAtom =
+      Atom(name: '_Document.previewLayer', context: context);
+
+  @override
+  BitmapLayer? get previewLayer {
+    _$previewLayerAtom.reportRead();
+    return super.previewLayer;
+  }
+
+  @override
+  set previewLayer(BitmapLayer? value) {
+    _$previewLayerAtom.reportWrite(value, super.previewLayer, () {
+      super.previewLayer = value;
+    });
+  }
+
   late final _$pictureAtom = Atom(name: '_Document.picture', context: context);
 
   @override
@@ -213,6 +229,7 @@ height: ${height},
 palette: ${palette},
 layers: ${layers},
 selectLayerIndex: ${selectLayerIndex},
+previewLayer: ${previewLayer},
 picture: ${picture},
 title: ${title},
 selectedLayer: ${selectedLayer}

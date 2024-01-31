@@ -76,6 +76,11 @@ abstract class _BitmapLayer extends Layer with Store {
     _pixels[targetIndex + 3] = color.alpha;
   }
 
+  void clear() {
+    _pixels = Uint8List(width * height * 4);
+    invalidate();
+  }
+
   @override
   Future<Image> render() async {
     var completer = Completer<Image>();

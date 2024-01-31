@@ -86,6 +86,9 @@ abstract class _Document with Store {
   Layer get selectedLayer => layers[selectLayerIndex];
 
   @observable
+  BitmapLayer? previewLayer;
+
+  @observable
   Picture? picture;
 
   bool _isInvalidated = true;
@@ -96,6 +99,13 @@ abstract class _Document with Store {
 
   _Document({this.path, required this.width, required this.height}) {
     history = DocumentHistory(this);
+
+    previewLayer = BitmapLayer(
+      name: 'Preview',
+      width: width,
+      height: height,
+      onInvalidate: _invalidate,
+    );
   }
 
   void update() async {
@@ -126,7 +136,7 @@ abstract class _Document with Store {
     layers.insert(
       selectLayerIndex,
       BitmapLayer(
-        name: '레이어',
+        name: 'Layer ${layers.length + 1}',
         width: width,
         height: height,
         pixels: pixels,
@@ -175,6 +185,7 @@ abstract class _Document with Store {
   Future<void> render() async {
     final recorder = PictureRecorder();
     final canvas = Canvas(recorder);
+    final paint = Paint();
 
     for (int i = layers.length - 1; i >= 0; i--) {
       final layer = layers[i];
@@ -183,9 +194,19 @@ abstract class _Document with Store {
         continue;
       }
 
-      final layerImage = await layer.renderImage();
+      canvas.drawImage(
+        await layer.renderImage(),
+        Offset.zero,
+        paint,
+      );
 
-      canvas.drawImage(layerImage, Offset.zero, Paint());
+      if (i == selectLayerIndex) {
+        canvas.drawImage(
+          await previewLayer!.renderImage(),
+          Offset.zero,
+          paint,
+        );
+      }
     }
 
     picture = recorder.endRecording();

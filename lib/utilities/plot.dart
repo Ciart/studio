@@ -89,4 +89,27 @@ class Plot {
       onPlot(x1 + 1, y1--);
     }
   }
+
+  static void rectangle(
+    int startX,
+    int startY,
+    int endX,
+    int endY,
+    void Function(int x, int y) onPlot,
+  ) {
+    int minX = startX < endX ? startX : endX;
+    int maxX = startX > endX ? startX : endX;
+    int minY = startY < endY ? startY : endY;
+    int maxY = startY > endY ? startY : endY;
+
+    for (int x = minX; x <= maxX; x++) {
+      onPlot(x, minY);
+      onPlot(x, maxY);
+    }
+
+    for (int y = minY; y <= maxY; y++) {
+      onPlot(minX, y);
+      onPlot(maxX, y);
+    }
+  }
 }

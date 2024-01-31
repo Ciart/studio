@@ -20,21 +20,32 @@ class PropertyBar extends StatelessWidget {
       child: Container(
         color: Colors.grey[160],
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Observer(
-            builder: (context) {
-              final tool = toolContainer.focusTool;
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            children: [
+              Observer(
+                builder: (context) {
+                  return Text(
+                    toolContainer.focusTool.name,
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  );
+                },
+              ),
+              const SizedBox(width: 8.0),
+              Observer(
+                builder: (context) {
+                  final tool = toolContainer.focusTool;
 
-              print(tool.id);
-
-              if (tool is Pen) {
-                return PenProperty();
-              } else if (tool is Eraser) {
-                return EraserProperty();
-              } else {
-                return Container();
-              }
-            },
+                  if (tool is Pen) {
+                    return PenProperty();
+                  } else if (tool is Eraser) {
+                    return EraserProperty();
+                  } else {
+                    return Container();
+                  }
+                },
+              ),
+            ],
           ),
         ),
       ),

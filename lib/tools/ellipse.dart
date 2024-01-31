@@ -4,8 +4,8 @@ import 'package:ciart_studio/tools/tool.dart';
 import 'package:ciart_studio/utilities/plot.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
-class Line extends Tool {
-  Line() : super(ToolId.line, 'Line', FluentIcons.line);
+class Ellipse extends Tool {
+  Ellipse() : super(ToolId.ellipse, 'Ellipse', FluentIcons.ellipse);
 
   Offset _startPosition = Offset.zero;
 
@@ -20,7 +20,7 @@ class Line extends Tool {
 
     layer.clear();
 
-    Plot.line(
+    Plot.ellipse(
       _startPosition.dx.toInt(),
       _startPosition.dy.toInt(),
       data.position.dx.toInt(),
@@ -43,7 +43,7 @@ class Line extends Tool {
       return;
     }
 
-    Plot.line(
+    Plot.ellipse(
       _startPosition.dx.toInt(),
       _startPosition.dy.toInt(),
       data.position.dx.toInt(),

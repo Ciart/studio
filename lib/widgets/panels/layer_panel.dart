@@ -59,7 +59,7 @@ class _LayerPanelState extends State<LayerPanel> {
                             },
                             child: Container(
                               color: index == document.selectLayerIndex
-                                  ? Colors.white
+                                  ? Colors.grey[160]
                                   : Colors.transparent,
                               child: Padding(
                                 padding: const EdgeInsets.all(8.0),

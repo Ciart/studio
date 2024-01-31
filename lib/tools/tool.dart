@@ -8,8 +8,9 @@ part 'tool.g.dart';
 enum ToolId {
   pen,
   eraser,
-  rectangle,
   line,
+  rectangle,
+  ellipse,
   eyedropper,
 }
 
