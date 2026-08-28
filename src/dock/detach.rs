@@ -3,7 +3,7 @@ use std::{rc::Rc, sync::Arc};
 use gpui::{
     AnyWindowHandle, App, Bounds, Context, Entity, IntoElement, ParentElement, Pixels, Point,
     Render, SharedString, Styled, Subscription, TitlebarOptions, WeakEntity, Window, WindowBounds,
-    WindowOptions, div, point, prelude::*, px, rgb, size,
+    WindowOptions, div, point, prelude::*, px, rgb, rgba, size,
 };
 use gpui_base::dock::{
     AnyDrag, DockArea, DockEvent, DockPlacement, DropTarget, InsertTarget, PanelView,
@@ -16,11 +16,15 @@ use super::{
         center_panels, drop_allowed, group_len, panel_entity, panel_title, placement_of, zone_of,
     },
 };
-use crate::theme::{SURFACE, TEXT};
+use crate::{
+    fullscreen::FullscreenTitlebar,
+    theme::{BACKDROP, FONT, FONT_SIZE, TEXT},
+};
 
 struct DetachedWindow {
     kind: AreaKind,
     area: Entity<DockArea>,
+    fullscreen: FullscreenTitlebar,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -59,7 +63,7 @@ impl DetachedWindow {
                 titlebar: Some(TitlebarOptions {
                     title: Some(title),
                     appears_transparent: true,
-                    traffic_light_position: Some(point(px(11.), px(11.))),
+                    traffic_light_position: Some(point(px(13.), px(13.))),
                 }),
                 app_owns_titlebar_drag: true,
                 ..Default::default()
@@ -82,6 +86,7 @@ impl DetachedWindow {
                     DetachedWindow {
                         kind,
                         area,
+                        fullscreen: FullscreenTitlebar::default(),
                         _subscriptions: vec![subscription],
                     }
                 });
@@ -151,16 +156,19 @@ impl DetachedWindow {
 }
 
 impl Render for DetachedWindow {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        self.fullscreen.sync(window);
+
         div()
             .id("detached-root")
             .size_full()
             .flex()
             .flex_col()
             .overflow_hidden()
-            .bg(rgb(SURFACE))
-            .text_color(rgb(TEXT))
-            .text_sm()
+            .bg(rgb(BACKDROP))
+            .font_family(FONT)
+            .text_size(px(FONT_SIZE))
+            .text_color(rgba(TEXT))
             .child(div().flex_1().min_h(px(0.)).child(self.area.clone()))
     }
 }

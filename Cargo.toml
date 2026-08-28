@@ -5,9 +5,9 @@ edition = "2024"
 
 [dependencies]
 gpui = { git = "https://github.com/peudomi/gpui.git" }
-gpui-base = { git = "https://github.com/longbridge/gpui-component" }
+gpui-base = { git = "https://github.com/peudomi/gpui-component" }
 gpui_platform = { git = "https://github.com/peudomi/gpui.git" }
+raw-window-handle = "0.6"
 
-[patch."https://github.com/zed-industries/zed"]
-gpui = { git = "https://github.com/peudomi/gpui.git" }
-gpui_platform = { git = "https://github.com/peudomi/gpui.git" }
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2"

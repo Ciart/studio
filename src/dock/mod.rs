@@ -14,11 +14,14 @@ use std::{
 use gpui::{
     AnyWindowHandle, App, Context, Empty, Entity, EventEmitter, FocusHandle, Focusable,
     IntoElement, ParentElement, Render, SharedString, Styled, WeakEntity, Window, div, prelude::*,
-    rgb,
+    px, rgb, rgba,
 };
 use gpui_base::dock::{DockArea, NodeId, Panel, PanelEvent, PanelId, PanelView};
 
-use crate::theme::{ACCENT, SURFACE};
+use crate::{
+    panels::PanelKind,
+    theme::{FONT, FONT_SIZE, HAIRLINE, PANEL, RADIUS, TEXT},
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PanelZone {
@@ -39,7 +42,7 @@ impl AreaKind {
 }
 
 pub struct DockPanel {
-    name: &'static str,
+    pub(crate) kind: PanelKind,
     pub(crate) title: SharedString,
     pub(crate) zone: PanelZone,
     focus_handle: FocusHandle,
@@ -47,13 +50,13 @@ pub struct DockPanel {
 
 impl DockPanel {
     pub fn new(
-        name: &'static str,
+        kind: PanelKind,
         title: impl Into<SharedString>,
         zone: PanelZone,
         cx: &mut App,
     ) -> Entity<Self> {
         cx.new(|cx| Self {
-            name,
+            kind,
             title: title.into(),
             zone,
             focus_handle: cx.focus_handle(),
@@ -63,7 +66,7 @@ impl DockPanel {
 
 impl Panel for DockPanel {
     fn panel_name(&self) -> &'static str {
-        self.name
+        self.kind.name()
     }
 }
 
@@ -77,7 +80,7 @@ impl Focusable for DockPanel {
 
 impl Render for DockPanel {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div().size_full().p_3().child(self.title.clone())
+        self.kind.body()
     }
 }
 
@@ -101,13 +104,14 @@ impl Render for DragPreview {
             .size_full()
             .flex()
             .items_center()
-            .px_2()
-            .text_xs()
-            .bg(rgb(SURFACE))
-            .text_color(rgb(ACCENT))
+            .justify_center()
+            .bg(rgb(PANEL))
+            .font_family(FONT)
+            .text_size(px(FONT_SIZE))
+            .text_color(rgba(TEXT))
             .border_1()
-            .border_color(rgb(ACCENT))
-            .rounded_sm()
+            .border_color(rgba(HAIRLINE))
+            .rounded(px(RADIUS))
             .child(self.title.clone())
     }
 }
@@ -120,6 +124,6 @@ impl Render for HiddenPreview {
     }
 }
 
-pub(crate) const TAB_HEIGHT: f32 = 28.;
-pub(crate) const TITLEBAR_HEIGHT: f32 = 34.;
-pub(crate) const TRAFFIC_LIGHT_PAD: f32 = 80.;
+pub(crate) const TAB_HEIGHT: f32 = 30.;
+pub(crate) const TITLEBAR_HEIGHT: f32 = 38.;
+pub(crate) const TRAFFIC_LIGHT_PAD: f32 = 78.;

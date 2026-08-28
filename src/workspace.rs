@@ -2,27 +2,32 @@ use std::rc::Rc;
 
 use gpui::{
     Context, Entity, InteractiveElement, IntoElement, ParentElement, Render, Styled, Subscription,
-    Window, WindowControlArea, div, px, rgb,
+    Window, WindowControlArea, div, px, rgb, rgba, white,
 };
 use gpui_base::dock::{DockArea, DockEvent, DockLayout, DockPlacement};
 
 use crate::{
     dock::{self, DockPanel, DockSkin, PanelZone},
-    theme::SURFACE,
+    fullscreen::FullscreenTitlebar,
+    panels::PanelKind,
+    theme::{BACKDROP, FONT, FONT_SIZE, TEXT},
 };
 
 pub struct Workspace {
     area: Entity<DockArea>,
     skin: Rc<DockSkin>,
+    fullscreen: FullscreenTitlebar,
     _drop_rules: Subscription,
 }
 
 impl Workspace {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let canvas = DockPanel::new("Canvas", "Canvas", PanelZone::Canvas, cx);
-        let palette = DockPanel::new("Palette", "Palette", PanelZone::Dock, cx);
-        let brushes = DockPanel::new("Brushes", "Brushes", PanelZone::Dock, cx);
-        let layers = DockPanel::new("Layers", "Layers", PanelZone::Dock, cx);
+        let canvas = DockPanel::new(PanelKind::Canvas, "Hello", PanelZone::Canvas, cx);
+        let project = DockPanel::new(PanelKind::Project, "Project", PanelZone::Dock, cx);
+        let timeline = DockPanel::new(PanelKind::Timeline, "Timeline", PanelZone::Dock, cx);
+        let color_picker =
+            DockPanel::new(PanelKind::ColorPicker, "Color Picker", PanelZone::Dock, cx);
+        let palette = DockPanel::new(PanelKind::Palette, "Palette", PanelZone::Dock, cx);
 
         let (area, skin) = DockSkin::dock_area("workspace", window, cx);
 
@@ -30,20 +35,27 @@ impl Workspace {
             area.set_center(DockLayout::tabs().panel(canvas), window, cx);
             area.set_dock(
                 DockPlacement::Left,
-                DockLayout::tabs().panel(palette).panel(brushes),
+                DockLayout::tabs().panel(project),
                 window,
                 cx,
             );
-            area.set_dock_size(DockPlacement::Left, px(240.), window, cx);
-            area.set_dock(DockPlacement::Right, DockLayout::tabs(), window, cx);
-            area.set_dock_size(DockPlacement::Right, px(240.), window, cx);
+            area.set_dock_size(DockPlacement::Left, px(300.), window, cx);
+            area.set_dock(
+                DockPlacement::Right,
+                DockLayout::v_split()
+                    .child(DockLayout::tabs().panel(color_picker), Some(px(320.)))
+                    .child(DockLayout::tabs().panel(palette), None),
+                window,
+                cx,
+            );
+            area.set_dock_size(DockPlacement::Right, px(300.), window, cx);
             area.set_dock(
                 DockPlacement::Bottom,
-                DockLayout::tabs().panel(layers),
+                DockLayout::tabs().panel(timeline),
                 window,
                 cx,
             );
-            area.set_dock_size(DockPlacement::Bottom, px(140.), window, cx);
+            area.set_dock_size(DockPlacement::Bottom, px(245.), window, cx);
         });
 
         let _drop_rules = cx.subscribe_in(&area, window, Self::on_dock_event);
@@ -52,6 +64,7 @@ impl Workspace {
         Workspace {
             area,
             skin,
+            fullscreen: FullscreenTitlebar::default(),
             _drop_rules,
         }
     }
@@ -73,24 +86,39 @@ impl Workspace {
 }
 
 impl Render for Workspace {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        self.fullscreen.sync(window);
+
         div()
+            .id("workspace-root")
             .size_full()
-            .bg(rgb(SURFACE))
+            .bg(rgb(BACKDROP))
+            .font_family(FONT)
+            .text_size(px(FONT_SIZE))
+            .text_color(rgba(TEXT))
             .flex()
             .flex_col()
             .child(
                 div()
                     .id("titlebar")
-                    .h(px(34.))
+                    .h(px(38.))
                     .flex_none()
                     .flex()
                     .items_center()
-                    .pl(px(80.))
+                    .justify_center()
                     .window_control_area(WindowControlArea::Drag)
-                    .child("Ciart Studio")
-                    .text_sm(),
+                    .child("Ciart Studio"),
             )
             .child(div().flex_1().min_h(px(0.)).child(self.area.clone()))
+            .child(
+                div()
+                    .h(px(30.))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .px(px(12.))
+                    .text_color(white())
+                    .child("Size: 128, 128 - Cursor: 13, 29"),
+            )
     }
 }

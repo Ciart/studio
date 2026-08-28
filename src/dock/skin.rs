@@ -11,7 +11,7 @@ use gpui::{
     prelude::*, px, rgb, rgba,
 };
 use gpui_base::{
-    ElementExt, Placement, StyledExt,
+    ElementExt, Placement,
     dock::{
         AnyDrag, DockArea, DockAreaRenderer, DockContext, DockPlacement, DropIndicator,
         InsertTarget, NodeId, PanelId, TabGroupContext, TabGroupRenderer, TileContext,
@@ -25,11 +25,14 @@ use super::{
     detach::{living_source, transfer_panel},
     drag::{AreaEntry, DragState, Grab, MergeSpot},
     util::{
-        EmptyDockCache, GroupBoundsCache, center_panels, drop_allowed, grab_within, panel_title,
-        placement_of, zone_of,
+        EmptyDockCache, GroupBoundsCache, background_of, center_panels, drop_allowed, grab_within,
+        panel_title, placement_of, zone_of,
     },
 };
-use crate::theme::{ACCENT, BORDER, CHROME, DROP_TARGET, MUTED, SURFACE, TEXT};
+use crate::{
+    panels::{empty_hint, icon},
+    theme::{BACKDROP, CANVAS, DROP_TARGET, FONT, FONT_SIZE, HAIRLINE, MUTED, PANEL, RADIUS, TEXT},
+};
 
 #[derive(Clone)]
 pub struct DockSkin {
@@ -173,10 +176,6 @@ impl DockSkin {
                     .w(px(4.))
                     .cursor_col_resize(),
             })
-            .child(div().bg(rgb(BORDER)).map(|line| match placement {
-                DockPlacement::Bottom => line.h(px(1.)).w_full(),
-                _ => line.w(px(1.)).h_full(),
-            }))
             .on_mouse_down(MouseButton::Left, move |_, _, cx| {
                 cx.stop_propagation();
                 *resizing.borrow_mut() = Some(dock.clone());
@@ -192,8 +191,6 @@ impl DockSkin {
             .flex()
             .items_center()
             .justify_center()
-            .text_xs()
-            .text_color(rgb(MUTED))
             .when(merging, |this| this.bg(rgba(DROP_TARGET)))
             .on_prepaint({
                 let bounds_cache = self.empty_dock_bounds.clone();
@@ -203,7 +200,7 @@ impl DockSkin {
                     cache.push((placement, bounds));
                 }
             })
-            .child("Drop panels here")
+            .child(empty_hint("Drop panels here"))
             .drag_over::<AnyDrag>({
                 let dragging_zone = self.drag.dragging_zone.clone();
                 move |style, _, _, _| match drop_allowed(kind, dragging_zone.get(), placement) {
@@ -262,9 +259,10 @@ impl DockAreaRenderer for DockSkin {
             .flex()
             .flex_row()
             .overflow_hidden()
-            .bg(rgb(CHROME))
-            .text_color(rgb(TEXT))
-            .text_sm()
+            .bg(rgb(BACKDROP))
+            .font_family(FONT)
+            .text_size(px(FONT_SIZE))
+            .text_color(rgba(TEXT))
             .on_mouse_move(move |event: &MouseMoveEvent, window, cx| {
                 drag.promote_if_pending(window, cx);
                 let dock = dragging.borrow().clone();
@@ -328,7 +326,8 @@ impl DockAreaRenderer for DockSkin {
             .overflow_hidden()
             .map(|this| match placement {
                 DockPlacement::Bottom => this.w_full().h(dock.size()).flex_col(),
-                _ => this.h_full().w(dock.size()).flex_row(),
+                DockPlacement::Right => this.h_full().w(dock.size()).flex_row().ml(px(1.)),
+                _ => this.h_full().w(dock.size()).flex_row().mr(px(1.)),
             })
             .map(|this| match empty {
                 false => this.child(content),
@@ -361,11 +360,19 @@ impl TabGroupRenderer for DockSkin {
             .flex_col()
             .min_h(px(0.))
             .overflow_hidden()
-            .bg(rgb(if in_dock { CHROME } else { SURFACE }))
+            .rounded(px(RADIUS))
+            .bg(rgb(if in_dock { PANEL } else { BACKDROP }))
+            .when(!self.kind.is_detached(), |this| this.mb(px(1.)))
     }
 
-    fn content_frame(&self, group: &TabGroupContext, _: &mut Window, _: &mut App) -> Stateful<Div> {
+    fn content_frame(&self, group: &TabGroupContext, _: &mut Window, cx: &mut App) -> Stateful<Div> {
         let node = group.node();
+        let in_dock = self.group_zone(node, cx) == PanelZone::Dock;
+        let background = group
+            .panels()
+            .get(group.active_ix())
+            .and_then(|panel| background_of(panel, cx))
+            .unwrap_or(if in_dock { PANEL } else { CANVAS });
         let bounds_cache = self.group_bounds.clone();
 
         div()
@@ -374,6 +381,9 @@ impl TabGroupRenderer for DockSkin {
             .flex_1()
             .min_h(px(0.))
             .overflow_hidden()
+            .bg(rgb(background))
+            .rounded_b(px(RADIUS))
+            .when(!in_dock, |this| this.rounded_tr(px(RADIUS)))
             .on_prepaint(move |bounds, _, _| {
                 bounds_cache.borrow_mut().entry(node).or_default().content = Some(bounds);
             })
@@ -445,13 +455,24 @@ impl TabGroupRenderer for DockSkin {
             } else {
                 TAB_HEIGHT
             }))
-            .when(in_titlebar, |this| this.pl(px(TRAFFIC_LIGHT_PAD)))
             .flex_none()
             .items_center()
             .overflow_hidden()
-            .bg(rgb(CHROME))
-            .border_b_1()
-            .border_color(rgb(BORDER))
+            .when(in_dock, |this| {
+                this.bg(rgb(PANEL))
+                    .pr(px(9.))
+                    .justify_between()
+                    .when(!in_titlebar, |this| {
+                        this.rounded_t(px(RADIUS))
+                            .border_t_1()
+                            .border_color(rgba(HAIRLINE))
+                    })
+            })
+            .map(|this| match (in_titlebar, in_dock) {
+                (true, _) => this.pl(px(TRAFFIC_LIGHT_PAD)),
+                (false, true) => this.pl(px(12.)),
+                (false, false) => this,
+            })
             .when(merging, |this| this.bg(rgba(DROP_TARGET)))
             .on_prepaint({
                 let node = group.node();
@@ -471,7 +492,8 @@ impl TabGroupRenderer for DockSkin {
                 let group = group.clone();
                 move |item: &AnyDrag, window, cx| group.drop_item(item.clone(), None, window, cx)
             })
-            .children(group.panels().iter().enumerate().map(|(ix, panel)| {
+            .child(h_flex().h_full().items_center().children(
+                group.panels().iter().enumerate().map(|(ix, panel)| {
                 let selected = ix == group.active_ix();
                 let title = panel_title(panel, cx);
                 let zone = zone_of(panel, cx);
@@ -502,17 +524,22 @@ impl TabGroupRenderer for DockSkin {
                     .h_full()
                     .flex()
                     .items_center()
-                    .text_xs()
                     .cursor_pointer()
-                    .map(|this| match (in_dock, selected) {
-                        (false, true) => this
-                            .bg(rgb(SURFACE))
-                            .text_color(rgb(ACCENT))
-                            .font_semibold(),
-                        (true, true) => this.text_color(rgb(ACCENT)).font_semibold(),
-                        (_, false) => this.text_color(rgb(MUTED)),
+                    .map(|this| match in_dock {
+                        true => this.pr(px(12.)),
+                        false => this
+                            .pl(px(12.))
+                            .pr(px(4.))
+                            .rounded_t(px(RADIUS))
+                            .border_t_1()
+                            .border_color(rgba(if selected { HAIRLINE } else { 0 }))
+                            .when(selected, |this| this.bg(rgb(CANVAS))),
                     })
-                    .child(div().px_2().child(title.clone()))
+                    .text_color(rgba(if selected { TEXT } else { MUTED }))
+                    .child(title.clone())
+                    .when(!in_dock, |this| {
+                        this.child(icon("icons/close_small.svg", 20., 20., TEXT))
+                    })
                     .on_click({
                         let group = group.clone();
                         move |_, window, cx| group.select_tab(ix, window, cx)
@@ -549,7 +576,8 @@ impl TabGroupRenderer for DockSkin {
                     .external_drag_payload::<AnyDrag>(|_, _, _| {
                         Some(ExternalDragPayload::AppPrivate)
                     })
-            }))
+                }),
+            ))
             .when(in_titlebar, |this| {
                 this.child(div().id("titlebar-drag").flex_1().h_full().on_mouse_down(
                     MouseButton::Left,
@@ -561,6 +589,9 @@ impl TabGroupRenderer for DockSkin {
                         }
                     },
                 ))
+            })
+            .when(in_dock, |this| {
+                this.child(icon("icons/more_horiz.svg", 20., 8., MUTED))
             })
             .into_any_element()
     }

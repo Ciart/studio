@@ -16,6 +16,13 @@ pub(crate) fn panel_title(panel: &Arc<dyn PanelView>, cx: &App) -> SharedString 
         .unwrap_or_else(|| panel.panel_name(cx).into())
 }
 
+pub(crate) fn background_of(panel: &Arc<dyn PanelView>, cx: &App) -> Option<u32> {
+    panel
+        .as_any()
+        .downcast_ref::<Entity<DockPanel>>()
+        .map(|panel| panel.read(cx).kind.background())
+}
+
 pub(crate) fn zone_of(panel: &Arc<dyn PanelView>, cx: &App) -> Option<PanelZone> {
     panel
         .as_any()
