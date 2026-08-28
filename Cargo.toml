@@ -1,0 +1,13 @@
+[package]
+name = "studio"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gpui = { git = "https://github.com/peudomi/gpui.git" }
+gpui-base = { git = "https://github.com/longbridge/gpui-component" }
+gpui_platform = { git = "https://github.com/peudomi/gpui.git" }
+
+[patch."https://github.com/zed-industries/zed"]
+gpui = { git = "https://github.com/peudomi/gpui.git" }
+gpui_platform = { git = "https://github.com/peudomi/gpui.git" }
