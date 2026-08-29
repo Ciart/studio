@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use gpui::prelude::FluentBuilder as _;
 use gpui::{
     Context, Entity, InteractiveElement, IntoElement, ParentElement, Render, Styled, Subscription,
     Window, WindowControlArea, div, px, rgb, rgba, white,
@@ -59,6 +60,28 @@ impl Workspace {
             area.set_dock_size(DockPlacement::Bottom, px(245.), window, cx);
         });
 
+        #[cfg(target_os = "macos")]
+        {
+            let dock = area.downgrade();
+            let handle = window.window_handle();
+            let async_app = cx.to_async();
+            crate::mac::set_toolbar_action(move |button| {
+                let placement = match button {
+                    crate::mac::TitlebarButton::LeftDock => DockPlacement::Left,
+                    crate::mac::TitlebarButton::RightDock => DockPlacement::Right,
+                    crate::mac::TitlebarButton::BottomDock => DockPlacement::Bottom,
+                };
+                let dock = dock.clone();
+                let mut async_app = async_app.clone();
+                let _ = handle.update(&mut async_app, move |_, window, cx| {
+                    let Some(dock) = dock.upgrade() else {
+                        return;
+                    };
+                    dock.update(cx, |dock, cx| dock.toggle_dock(placement, window, cx));
+                });
+            });
+        }
+
         let _drop_rules = cx.subscribe_in(&area, window, Self::on_dock_event);
         skin.sync_empty_regions(area.read(cx), cx);
 
@@ -80,6 +103,9 @@ impl Workspace {
         match event {
             DockEvent::LayoutChanged => self.skin.sync_empty_regions(area.read(cx), cx),
             DockEvent::DragDrop { item, target } => {
+                if self.skin.window_drag_active() {
+                    return;
+                }
                 dock::apply_drop(area, item, target, window, cx)
             }
         }
@@ -89,6 +115,9 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         self.fullscreen.sync(window);
+        #[cfg(target_os = "macos")]
+        crate::mac::attach_dock_buttons(window);
+        let native_titlebar = cfg!(target_os = "macos");
 
         div()
             .id("workspace-root")
@@ -99,25 +128,27 @@ impl Render for Workspace {
             .text_color(rgba(TEXT))
             .flex()
             .flex_col()
-            .child(
-                div()
-                    .id("titlebar")
-                    .h(px(38.))
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .window_control_area(WindowControlArea::Drag)
-                    .child(div().w(px(caption::caption_buttons_width())).flex_none())
-                    .child(
-                        div()
-                            .flex_1()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .child("Ciart Studio"),
-                    )
-                    .child(caption::caption_buttons(window)),
-            )
+            .when(!native_titlebar, |el| {
+                el.child(
+                    div()
+                        .id("titlebar")
+                        .h(px(38.))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .window_control_area(WindowControlArea::Drag)
+                        .child(div().w(px(caption::caption_buttons_width())).flex_none())
+                        .child(
+                            div()
+                                .flex_1()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .child("Ciart Studio"),
+                        )
+                        .child(caption::caption_buttons(window)),
+                )
+            })
             .child(div().flex_1().min_h(px(0.)).child(self.area.clone()))
             .child(
                 div()

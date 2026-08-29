@@ -24,13 +24,13 @@ use crate::{
     theme::{FONT, FONT_SIZE, HAIRLINE, PANEL, RADIUS, TEXT},
 };
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PanelZone {
     Canvas,
     Dock,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum AreaKind {
     Main,
     Detached(PanelZone),

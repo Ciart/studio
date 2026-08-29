@@ -52,8 +52,6 @@ fn set_transitions(hwnd: windows::Win32::Foundation::HWND, enabled: bool) {
     }
 }
 
-/// The spare opens with `show: false`, so [`reveal`] is its first showing and
-/// DWM would animate it in at the drop point.
 #[cfg(target_os = "windows")]
 fn conceal(window: &Window) {
     let Some(hwnd) = raw_hwnd(window) else {
@@ -62,8 +60,6 @@ fn conceal(window: &Window) {
     set_transitions(hwnd, false);
 }
 
-/// Clips the window away instead of hiding it: `SW_HIDE` would drop the mouse
-/// capture and end the move loop under the still-held button.
 #[cfg(target_os = "windows")]
 pub(crate) fn set_masked(window: &Window, masked: bool) {
     use windows::Win32::Graphics::Gdi::{CreateRectRgn, SetWindowRgn};
@@ -81,11 +77,14 @@ pub(crate) fn set_masked(window: &Window, masked: bool) {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
+pub(crate) fn set_masked(window: &Window, masked: bool) {
+    crate::mac::set_alpha(window, if masked { 0. } else { 1. });
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub(crate) fn set_masked(_: &Window, _: bool) {}
 
-/// Places the window and shows it in one call, so it never appears at the
-/// bounds it was opened with.
 #[cfg(target_os = "windows")]
 fn reveal(window: &Window, origin: Point<Pixels>) {
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -107,7 +106,6 @@ fn reveal(window: &Window, origin: Point<Pixels>) {
             SWP_NOSIZE | SWP_SHOWWINDOW,
         );
     }
-    // It is an ordinary window from here on, and the user closes those.
     set_transitions(hwnd, true);
 }
 
@@ -119,14 +117,10 @@ fn reveal(window: &mut Window, origin: Point<Pixels>) {
     window.set_origin(origin);
 }
 
-/// A detached window opened ahead of the tear-off that will fill it. Kept
-/// hidden and empty until [`fill_spare`] hands it a panel.
 pub(crate) struct SpareWindow {
     handle: AnyWindowHandle,
     area: WeakEntity<DockArea>,
     adopted: Rc<Cell<bool>>,
-    /// The dock skin bakes `AreaKind::Detached(zone)` in at construction, so a
-    /// spare can only stand in for a drag of the same zone.
     zone: PanelZone,
 }
 
@@ -213,8 +207,6 @@ impl DetachedWindow {
                         });
                     }
                     let subscription = cx.subscribe_in(&area, window, Self::on_area_event);
-                    // The move loop drives the window, not the pointer, so where
-                    // it ends up is the only report of where the pointer went.
                     let moved = cx.observe_window_bounds(window, Self::on_bounds_changed);
                     DetachedWindow {
                         kind,
@@ -294,7 +286,6 @@ impl DetachedWindow {
     ) {
         match event {
             DockEvent::LayoutChanged => {
-                // A spare is legitimately empty until it is adopted.
                 if self.adopted.get() && center_panels(area.read(cx)).is_empty() {
                     let handle = window.window_handle();
                     cx.defer(move |cx| {
@@ -303,7 +294,7 @@ impl DetachedWindow {
                 }
             }
             DockEvent::DragDrop { item, target } => {
-                if self.drag.is_dragged_window(window.window_handle()) {
+                if self.drag.window_drag_active() {
                     return;
                 }
                 apply_drop_in(self.kind, area, item, target, window, cx)
@@ -359,9 +350,19 @@ pub(crate) fn detach_panel(
             .update(cx, |_, window, _| window.remove_window());
     }
     DetachedWindow::open(state, panel, zone, origin, true, cx).map(|spare| {
-        let _ = spare
-            .handle
-            .update(cx, |_, window, _| window.start_window_move());
+        let _ = spare.handle.update(cx, |_, window, _| {
+            #[cfg(target_os = "macos")]
+            if let Some(cursor) = crate::mac::cursor_position() {
+                let origin = state.window_origin(cursor);
+                crate::mac::move_window_ref(
+                    crate::mac::window_ref(window),
+                    f32::from(origin.x),
+                    f32::from(origin.y),
+                );
+            }
+            #[cfg(not(target_os = "macos"))]
+            window.start_window_move();
+        });
         (spare.handle, spare.area)
     })
 }
@@ -390,8 +391,6 @@ pub(crate) fn prepare_spare(state: &DragState, panel: &Arc<dyn PanelView>, cx: &
 }
 
 pub(crate) fn close_spares(state: &DragState, cx: &mut App) {
-    // Closing a window runs the window-closed observers, and those read
-    // `spares`, so the borrow has to be over before the first one goes.
     let spares: Vec<SpareWindow> = state.spares.borrow_mut().drain(..).collect();
     for spare in spares {
         let _ = spare
@@ -400,8 +399,6 @@ pub(crate) fn close_spares(state: &DragState, cx: &mut App) {
     }
 }
 
-/// Closes the spares once they are the only thing keeping the app alive.
-/// Without this, `QuitMode::Default` never sees an empty window list.
 pub(crate) fn close_spare_if_last(state: &DragState, cx: &mut App) {
     let ids: Vec<_> = state
         .spares
@@ -440,8 +437,6 @@ fn fill_spare(
         if let Some(cursor) = origin {
             reveal(window, state.window_origin(cursor));
         }
-        // From here the platform's move loop carries the window, so nothing in
-        // this app moves it again until the drag ends.
         window.start_window_move();
     });
     placed.ok()?;

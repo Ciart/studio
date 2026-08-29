@@ -35,7 +35,7 @@ pub(crate) struct AreaEntry {
     pub(crate) empty_docks: EmptyDockCache,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum MergeSpot {
     Group {
         node: NodeId,
@@ -88,6 +88,10 @@ pub(crate) struct DragState {
     pub(crate) merge_target: Rc<RefCell<Option<MergeTarget>>>,
     pub(crate) last_position: Rc<Cell<Option<Point<Pixels>>>>,
     pub(crate) hidden: Rc<Cell<bool>>,
+    poll_running: Rc<Cell<bool>>,
+    handed_off: Rc<Cell<bool>>,
+    still_ticks: Rc<Cell<u32>>,
+    last_cursor: Rc<Cell<Option<Point<Pixels>>>>,
     pub(crate) spares: Rc<RefCell<Vec<SpareWindow>>>,
     pub(crate) spares_used: Rc<Cell<u64>>,
     pub(crate) spare_pending: Rc<Cell<bool>>,
@@ -109,6 +113,10 @@ impl DragState {
             merge_target: Rc::new(RefCell::new(None)),
             last_position: Rc::new(Cell::new(None)),
             hidden: Rc::new(Cell::new(false)),
+            poll_running: Rc::new(Cell::new(false)),
+            handed_off: Rc::new(Cell::new(false)),
+            still_ticks: Rc::new(Cell::new(0)),
+            last_cursor: Rc::new(Cell::new(None)),
             spares: Rc::new(RefCell::new(Vec::new())),
             spares_used: Rc::new(Cell::new(0)),
             spare_pending: Rc::new(Cell::new(false)),
@@ -216,8 +224,10 @@ impl DragState {
             .is_some_and(|dragged| dragged.window_id() == handle.window_id())
     }
 
-    /// Drives the chip phase from pointer motion; once a window is attached the
-    /// platform's move loop owns the drag and this goes quiet.
+    pub(crate) fn window_drag_active(&self) -> bool {
+        self.attached_window.borrow().is_some()
+    }
+
     pub(crate) fn pointer_moved(&self, window: &mut Window, cx: &mut App) {
         let Some(drag) = self.dragged.borrow().clone() else {
             return;
@@ -259,11 +269,13 @@ impl DragState {
             *self.attached_window.borrow_mut() = Some(attached);
             self.prime_chip(title.clone(), window.scale_factor(), cx);
             self.move_chip(None, cx);
+            #[cfg(not(target_os = "macos"))]
             if attached.window_id() == window.window_handle().window_id() {
                 window.start_window_move();
             } else {
                 let _ = attached.update(cx, |_, window, _| window.start_window_move());
             }
+            self.start_drag_poll(cx);
         } else {
             self.prime_chip(title.clone(), window.scale_factor(), cx);
             self.move_chip(Some(self.chip_origin(cursor)), cx);
@@ -294,8 +306,6 @@ impl DragState {
         }
     }
 
-    /// Schedules the spare for the next frame: building a window blocks the main
-    /// thread, so it must not land in the dispatch that is also moving the chip.
     fn prepare_spare_off_path(&self, view: Arc<dyn PanelView>, source: &mut Window, cx: &mut App) {
         if self.spare_pending.replace(true) || has_spare_for(self, &view, cx) {
             return;
@@ -307,8 +317,6 @@ impl DragState {
         });
     }
 
-    /// The drag that would have used a spare may never come, and each one holds
-    /// a real window open.
     fn release_idle_spares(&self, cx: &mut App) {
         let used = self.spares_used.get() + 1;
         self.spares_used.set(used);
@@ -324,7 +332,6 @@ impl DragState {
         .detach();
     }
 
-    /// Rebuilds the spare a tear-off consumed, once the drag is over.
     fn refill_spare(&self, cx: &mut App) {
         let Some(view) = self.dragged.borrow().as_ref().and_then(|drag| {
             drag.value()
@@ -348,32 +355,139 @@ impl DragState {
         window: &mut Window,
         cx: &mut App,
     ) {
+        if cfg!(target_os = "macos") {
+            return;
+        }
         if !self.is_dragged_window(handle) {
             return;
         }
+        let position =
+            window.bounds().origin + point(px(TRAFFIC_LIGHT_PAD), px(0.)) + self.grab.get().offset;
+        self.window_dragged_at(handle, position, window, cx);
+    }
+
+    fn window_dragged_at(
+        &self,
+        handle: AnyWindowHandle,
+        position: Point<Pixels>,
+        source_window: &mut Window,
+        cx: &mut App,
+    ) {
         let Some(drag) = self.dragged.borrow().clone() else {
             return;
         };
         let Some(payload) = drag.value().downcast_ref::<PanelDrag>() else {
             return;
         };
-        let position =
-            window.bounds().origin + point(px(TRAFFIC_LIGHT_PAD), px(0.)) + self.grab.get().offset;
         self.last_position.set(Some(position));
-        self.update_merge_target(&payload.view, Some(handle), position, window, cx);
-        if self.merge_target.borrow().is_some() {
-            if !self.hidden.replace(true) {
-                set_masked(window, true);
-            }
+        self.update_merge_target(&payload.view, Some(handle), position, source_window, cx);
+
+        let masked = if self.merge_target.borrow().is_some() {
             self.move_chip(Some(self.chip_origin(position)), cx);
+            (!self.hidden.replace(true)).then_some(true)
         } else if self.hidden.replace(false) {
-            set_masked(window, false);
             self.move_chip(None, cx);
+            Some(false)
+        } else {
+            None
+        };
+
+        #[cfg(target_os = "macos")]
+        let origin = (!self.handed_off.get()).then(|| self.window_origin(position));
+        #[cfg(not(target_os = "macos"))]
+        let origin: Option<Point<Pixels>> = None;
+
+        if masked.is_none() && origin.is_none() {
+            return;
+        }
+        self.with_dragged(handle, source_window, cx, |window| {
+            if let Some(masked) = masked {
+                set_masked(window, masked);
+            }
+            #[cfg(target_os = "macos")]
+            if let Some(origin) = origin {
+                crate::mac::move_window_ref(
+                    crate::mac::window_ref(window),
+                    f32::from(origin.x),
+                    f32::from(origin.y),
+                );
+            }
+        });
+    }
+
+    fn with_dragged(
+        &self,
+        handle: AnyWindowHandle,
+        source_window: &mut Window,
+        cx: &mut App,
+        act: impl FnOnce(&mut Window),
+    ) {
+        if handle.window_id() == source_window.window_handle().window_id() {
+            act(source_window);
+        } else {
+            let _ = handle.update(cx, |_, window, _| act(window));
         }
     }
 
-    /// The move loop swallows the release that would have ended the gpui drag,
-    /// so the drop is confirmed from the loop's own end instead.
+    #[cfg(target_os = "macos")]
+    fn consider_handoff(&self, handle: AnyWindowHandle, cursor: Point<Pixels>, cx: &mut App) {
+        let still = self.last_cursor.get().is_some_and(|last| {
+            f32::from(cursor.x - last.x).abs() < 2. && f32::from(cursor.y - last.y).abs() < 2.
+        });
+        self.last_cursor.set(Some(cursor));
+        if !still || self.hidden.get() || self.merge_target.borrow().is_some() {
+            self.still_ticks.set(0);
+            return;
+        }
+        let ticks = self.still_ticks.get() + 1;
+        self.still_ticks.set(ticks);
+        if ticks < 12 {
+            return;
+        }
+        self.handed_off.set(true);
+        let _ = handle.update(cx, |_, window, _| window.start_window_move());
+    }
+
+    #[cfg(target_os = "macos")]
+    fn start_drag_poll(&self, cx: &mut App) {
+        if self.poll_running.replace(true) {
+            return;
+        }
+        let state = self.clone();
+        cx.spawn(async move |cx| {
+            loop {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(8))
+                    .await;
+                let done = cx.update(|cx| {
+                    let Some(handle) = *state.attached_window.borrow() else {
+                        return true;
+                    };
+                    let Some(cursor) = crate::mac::cursor_position() else {
+                        return true;
+                    };
+                    let lost = handle
+                        .update(cx, |_, window, cx| {
+                            state.window_dragged_at(handle, cursor, window, cx)
+                        })
+                        .is_err();
+                    if !lost && !state.handed_off.get() {
+                        state.consider_handoff(handle, cursor, cx);
+                    }
+                    lost
+                });
+                if done {
+                    break;
+                }
+            }
+            state.poll_running.set(false);
+        })
+        .detach();
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn start_drag_poll(&self, _: &mut App) {}
+
     pub(crate) fn window_move_ended(
         &self,
         handle: AnyWindowHandle,
@@ -383,7 +497,7 @@ impl DragState {
         if !self.is_dragged_window(handle) {
             return;
         }
-        if self.hidden.replace(false) {
+        if self.merge_target.borrow().is_none() && self.hidden.replace(false) {
             set_masked(window, false);
         }
         cx.stop_active_drag(window);
@@ -402,11 +516,13 @@ impl DragState {
         self.last_position.set(Some(position));
 
         let attached = *self.attached_window.borrow();
+        if let Some(handle) = attached {
+            let position = live_cursor(position);
+            self.window_dragged_at(handle, position, source_window, cx);
+            return;
+        }
         if payload.detached.borrow().is_some() {
             self.update_merge_target(&payload.view, attached, position, source_window, cx);
-        }
-        if attached.is_some() {
-            return;
         }
 
         let preview = self.chip.window_id();
@@ -428,8 +544,6 @@ impl DragState {
             });
 
         if !source_window.bounds().contains(&position) {
-            // Building it at drag start would charge every tab reorder for a
-            // window it never uses.
             self.prepare_spare_off_path(payload.view.clone(), source_window, cx);
         }
 
@@ -439,6 +553,8 @@ impl DragState {
         }
 
         self.move_chip(None, cx);
+        let position = live_cursor(position);
+        self.last_position.set(Some(position));
         let torn_off = detach_panel(
             self,
             &payload.source_area,
@@ -450,10 +566,14 @@ impl DragState {
         if let Some((handle, area)) = torn_off {
             *self.attached_window.borrow_mut() = Some(handle);
             *payload.detached.borrow_mut() = Some((handle, area));
+            self.start_drag_poll(cx);
         }
     }
 
     pub(crate) fn finish_drag_preview(&self, cx: &mut App) {
+        self.handed_off.set(false);
+        self.still_ticks.set(0);
+        self.last_cursor.set(None);
         self.move_chip(None, cx);
         self.refill_spare(cx);
         self.release_idle_spares(cx);
@@ -484,8 +604,6 @@ impl DragState {
             }
             let payload = item.value().downcast_ref::<PanelDrag>();
             let landed = payload.is_some_and(|drag| drag.landed.get());
-            // The merge left it with nothing, so it is already closing, and
-            // unmasking it first would play the close animation in view.
             let closing = payload
                 .and_then(|drag| drag.detached.borrow().clone())
                 .and_then(|(_, area)| area.upgrade())
@@ -495,7 +613,6 @@ impl DragState {
             {
                 let _ = handle.update(cx, |_, window, _| set_masked(window, false));
             }
-            // Activating mid-drag takes the foreground; see pitfalls 19.
             if let Some(handle) = attached
                 && !landed
             {
@@ -503,6 +620,16 @@ impl DragState {
             }
         });
     }
+}
+
+#[cfg(target_os = "macos")]
+fn live_cursor(fallback: Point<Pixels>) -> Point<Pixels> {
+    crate::mac::cursor_position().unwrap_or(fallback)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn live_cursor(fallback: Point<Pixels>) -> Point<Pixels> {
+    fallback
 }
 
 pub(crate) fn hit_spot(

@@ -16,9 +16,6 @@ const MAXIMIZE: &str = "\u{e922}";
 const RESTORE: &str = "\u{e923}";
 const CLOSE: &str = "\u{e8bb}";
 
-// Windows only: macOS draws its own traffic lights, and on Linux gpui never
-// reports the control areas back (`on_hit_test_window_control` is a no-op
-// there), so the buttons would render dead.
 fn app_draws_caption_buttons() -> bool {
     cfg!(target_os = "windows")
 }
@@ -58,8 +55,6 @@ pub fn caption_buttons(window: &Window) -> impl IntoElement {
     ))
 }
 
-// Hover styling only repaints on stateful elements, so a caption button inside
-// a non-client hit-test region has to carry an id.
 fn button(
     id: &'static str,
     area: WindowControlArea,
@@ -90,8 +85,6 @@ fn button(
         .child(glyph)
 }
 
-// Windows 11 (build 22000+) ships Segoe Fluent Icons; Windows 10 only has
-// Segoe MDL2 Assets. The glyph codepoints are the same in both.
 #[cfg(target_os = "windows")]
 fn caption_font() -> &'static str {
     static FONT: std::sync::LazyLock<&'static str> = std::sync::LazyLock::new(|| {

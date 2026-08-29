@@ -2,6 +2,8 @@ mod assets;
 mod caption;
 mod dock;
 mod fullscreen;
+#[cfg(target_os = "macos")]
+mod mac;
 mod panels;
 mod theme;
 mod workspace;
@@ -32,12 +34,21 @@ fn main() {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 titlebar: Some(TitlebarOptions {
                     title: Some("Ciart Studio".into()),
-                    appears_transparent: true,
-                    traffic_light_position: Some(point(px(13.0), px(13.0))),
+                    appears_transparent: cfg!(not(target_os = "macos")),
+                    traffic_light_position: cfg!(not(target_os = "macos"))
+                        .then(|| point(px(13.0), px(13.0))),
                 }),
                 ..Default::default()
             },
-            |window, cx| cx.new(|cx| Workspace::new(window, cx)),
+            |window, cx| {
+                #[cfg(target_os = "macos")]
+                {
+                    mac::force_dark_appearance();
+                    mac::attach_toolbar(window, "Ciart Studio");
+                    mac::attach_dock_buttons(window);
+                }
+                cx.new(|cx| Workspace::new(window, cx))
+            },
         )
         .unwrap();
         cx.activate(true);

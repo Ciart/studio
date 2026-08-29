@@ -81,6 +81,10 @@ impl DockSkin {
         }
     }
 
+    pub fn window_drag_active(&self) -> bool {
+        self.drag.window_drag_active()
+    }
+
     fn merge_spot(&self) -> Option<MergeSpot> {
         let target = self.drag.merge_target.borrow();
         let target = target.as_ref()?;
@@ -212,8 +216,7 @@ impl DockSkin {
             .child(empty_hint("Drop panels here"))
             .drag_over::<AnyDrag>({
                 let drag_state = self.drag.clone();
-                let handle = self.window;
-                move |style, _, _, _| match !drag_state.is_dragged_window(handle)
+                move |style, _, _, _| match !drag_state.window_drag_active()
                     && drop_allowed(kind, drag_state.dragging_zone.get(), placement)
                 {
                     true => style.bg(rgba(DROP_TARGET)),
@@ -222,9 +225,8 @@ impl DockSkin {
             })
             .on_drop({
                 let drag_state = self.drag.clone();
-                let handle = self.window;
                 move |item: &AnyDrag, window, cx| {
-                    if drag_state.is_dragged_window(handle) {
+                    if drag_state.window_drag_active() {
                         return;
                     }
                     let Some(drag) = item.value().downcast_ref::<PanelDrag>() else {
@@ -292,7 +294,6 @@ impl DockAreaRenderer for DockSkin {
             .on_mouse_up(MouseButton::Left, move |_: &MouseUpEvent, _, _| {
                 finished.borrow_mut().take();
             })
-            // On the window, not the element: a tear-off leaves the element.
             .child(
                 canvas(
                     |_, _, _| (),
@@ -385,9 +386,10 @@ impl TabGroupRenderer for DockSkin {
     fn frame(&self, group: &TabGroupContext, _: &mut Window, cx: &mut App) -> Stateful<Div> {
         let zone = self.group_zone(group.node(), cx);
         let in_dock = zone == PanelZone::Dock;
-        self.drag
-            .hovered_group_accepts
-            .set(!cx.has_active_drag() || self.drag.drag_accepted(zone));
+        self.drag.hovered_group_accepts.set(
+            !cx.has_active_drag()
+                || (self.drag.drag_accepted(zone) && !self.drag.window_drag_active()),
+        );
         div()
             .id("tab-group")
             .size_full()
@@ -523,7 +525,7 @@ impl TabGroupRenderer for DockSkin {
             })
             .drag_over::<AnyDrag>({
                 let skin = self.clone();
-                move |style, _, _, _| match !skin.drag.is_dragged_window(skin.window)
+                move |style, _, _, _| match !skin.drag.window_drag_active()
                     && skin.drag.drag_accepted(group_zone)
                 {
                     true => style.bg(rgba(DROP_TARGET)),
@@ -534,7 +536,7 @@ impl TabGroupRenderer for DockSkin {
                 let group = group.clone();
                 let skin = self.clone();
                 move |item: &AnyDrag, window, cx| {
-                    if skin.drag.is_dragged_window(skin.window) {
+                    if skin.drag.window_drag_active() {
                         return;
                     }
                     group.drop_item(item.clone(), None, window, cx)
@@ -587,8 +589,6 @@ impl TabGroupRenderer for DockSkin {
                                 .when(selected, |this| this.bg(rgb(CANVAS))),
                         })
                         .text_color(rgba(if selected { TEXT } else { MUTED }))
-                        // The padding sits inside so `on_prepaint` above measures
-                        // the whole tab, not the content box.
                         .child(
                             div()
                                 .h_full()

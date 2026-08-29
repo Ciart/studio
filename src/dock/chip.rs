@@ -1,25 +1,14 @@
-//! The drag chip: a small label that follows the pointer while a tab is being
-//! dragged.
-//!
-//! It has to be its own window, because on every desktop platform anything
-//! drawn outside a window's own bounds needs one. What it does not need is a
-//! renderer: the chip's content is a fixed string for the whole drag, so on
-//! Windows it is a layered window handed a bitmap once per drag, with no swap
-//! chain, no compositor tree, and no frame loop.
-//!
-//! macOS still uses a gpui window and pays for all of that. Replacing it with a
-//! `CALayer`-backed `NSPanel` is left for later; see `docs/fork` in the gpui
-//! checkout for the drag notes.
-
 use gpui::{Pixels, SharedString, Size};
 
 #[cfg(target_os = "windows")]
 pub(crate) use native::Chip;
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
+pub(crate) use overlay::Chip;
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub(crate) use fallback::Chip;
 
-/// What the chip needs to draw itself, in logical pixels.
 #[derive(Clone)]
 pub(crate) struct ChipContent {
     pub(crate) title: SharedString,
@@ -43,7 +32,6 @@ mod native {
     use crate::theme::{HAIRLINE, PANEL, RADIUS, TEXT};
     use gpui::{App, Pixels, Point};
 
-    /// Border thickness in logical pixels, matching the gpui `border_1`.
     const BORDER: f32 = 1.;
 
     pub(crate) struct Chip {
@@ -65,8 +53,6 @@ mod native {
             self.handle();
         }
 
-        /// Redraws the bitmap if anything about the content changed. Called on
-        /// press, so the work lands before the drag rather than inside it.
         pub(crate) fn prime(&self, content: ChipContent, _: &mut App) {
             let Some(hwnd) = self.handle() else {
                 return;
@@ -111,8 +97,6 @@ mod native {
             }
         }
 
-        /// The chip is not a gpui window, so nothing that walks `cx.windows()`
-        /// has to know about it.
         pub(crate) fn window_id(&self) -> Option<gpui::WindowId> {
             None
         }
@@ -155,8 +139,6 @@ mod native {
                 lpszClassName: class,
                 ..Default::default()
             };
-            // A second registration fails harmlessly; the class outlives every
-            // chip and there is only ever one.
             RegisterClassW(&descriptor);
 
             let hwnd = CreateWindowExW(
@@ -201,8 +183,6 @@ mod native {
                 bmiHeader: BITMAPINFOHEADER {
                     biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
                     biWidth: width,
-                    // Negative height gives a top-down bitmap, so row 0 is the
-                    // top and the pixel walk below matches screen order.
                     biHeight: -height,
                     biPlanes: 1,
                     biBitCount: 32,
@@ -226,9 +206,6 @@ mod native {
                 right: width,
                 bottom: height,
             };
-            // GDI ignores the alpha byte, so the fill and the text are drawn
-            // opaque and the alpha channel is written afterwards from the
-            // rounded-rect coverage.
             let fill = CreateSolidBrush(COLORREF(bgr(PANEL)));
             FillRect(dc, &bounds, fill);
             let _ = DeleteObject(fill.into());
@@ -305,9 +282,6 @@ mod native {
         }
     }
 
-    /// Writes the alpha channel from a rounded-rect coverage mask, blends the
-    /// border in over the same distance field, and premultiplies. This is what
-    /// gives the chip antialiased corners: GDI's own rounded rect is aliased.
     fn shape(bits: *mut u32, width: i32, height: i32, radius: f32, border: f32) {
         let (border_b, border_g, border_r) = channels(over(HAIRLINE, PANEL));
         for y in 0..height {
@@ -352,8 +326,6 @@ mod native {
         outside + qx.max(qy).min(0.) - radius
     }
 
-    /// Flattens an `RRGGBBAA` theme color onto an opaque `RRGGBB` one. GDI has
-    /// no alpha, and the chip's background is opaque anyway.
     fn over(color: u32, backdrop: u32) -> u32 {
         let alpha = (color & 0xff) as f32 / 255.;
         let (br, bg, bb) = (
@@ -379,13 +351,136 @@ mod native {
         )
     }
 
-    /// `COLORREF` is `0x00BBGGRR`, the reverse of the theme's `0xRRGGBB`.
     fn bgr(rgb: u32) -> u32 {
         (rgb & 0xff) << 16 | (rgb & 0xff00) | (rgb >> 16) & 0xff
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
+mod overlay {
+    use std::cell::{Cell, RefCell};
+
+    use gpui::{
+        AnyWindowHandle, App, AppContext, Bounds, Entity, Pixels, Point, Size,
+        WindowBackgroundAppearance, WindowBounds, WindowId, WindowKind, WindowOptions, point, px,
+        size,
+    };
+
+    use super::super::DragPreview;
+    use super::ChipContent;
+
+    pub(crate) struct Chip {
+        window: RefCell<Option<AnyWindowHandle>>,
+        view: RefCell<Option<Entity<DragPreview>>>,
+        native: Cell<usize>,
+        visible: Cell<bool>,
+        size: Cell<Size<Pixels>>,
+    }
+
+    impl Chip {
+        pub(crate) fn new() -> Self {
+            Self {
+                window: RefCell::new(None),
+                view: RefCell::new(None),
+                native: Cell::new(0),
+                visible: Cell::new(false),
+                size: Cell::new(size(px(96.), px(28.))),
+            }
+        }
+
+        pub(crate) fn open(&self, _: &mut App) {}
+
+        pub(crate) fn prime(&self, content: ChipContent, cx: &mut App) {
+            self.build(cx);
+            if content.size != self.size.get() {
+                self.size.set(content.size);
+                if let Some(window) = *self.window.borrow() {
+                    let _ = window.update(cx, |_, window, _| window.resize(content.size));
+                }
+            }
+            if let Some(view) = self.view.borrow().clone() {
+                view.update(cx, |preview, cx| {
+                    if preview.title != content.title {
+                        preview.title = content.title;
+                        cx.notify();
+                    }
+                });
+            }
+        }
+
+        pub(crate) fn show_at(&self, origin: Point<Pixels>, cx: &mut App) {
+            let (x, y) = (f32::from(origin.x), f32::from(origin.y));
+            if self.visible.get() {
+                crate::mac::move_window_ref(self.native.get(), x, y);
+                return;
+            }
+            let Some(window) = *self.window.borrow() else {
+                return;
+            };
+            self.visible.set(true);
+            crate::mac::move_window_ref(self.native.get(), x, y);
+            let _ = window.update(cx, |_, window, _| {
+                crate::mac::order_front(window);
+                window.refresh();
+            });
+        }
+
+        pub(crate) fn hide(&self, cx: &mut App) {
+            if !self.visible.replace(false) {
+                return;
+            }
+            let Some(window) = *self.window.borrow() else {
+                return;
+            };
+            let _ = window.update(cx, |_, window, _| crate::mac::order_out(window));
+        }
+
+        pub(crate) fn window_id(&self) -> Option<WindowId> {
+            self.window.borrow().map(|window| window.window_id())
+        }
+
+        fn build(&self, cx: &mut App) {
+            if self.window.borrow().is_some() {
+                return;
+            }
+            let bounds = Bounds {
+                origin: point(px(0.), px(0.)),
+                size: self.size.get(),
+            };
+            let mut opened_view = None;
+            let opened = cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    titlebar: None,
+                    focus: false,
+                    show: false,
+                    kind: WindowKind::Overlay,
+                    is_movable: false,
+                    window_background: WindowBackgroundAppearance::Transparent,
+                    ..Default::default()
+                },
+                |_, cx| {
+                    let preview = cx.new(|_| DragPreview {
+                        title: Default::default(),
+                    });
+                    opened_view = Some(preview.clone());
+                    preview
+                },
+            );
+            if let (Ok(handle), Some(view)) = (opened, opened_view) {
+                let handle: AnyWindowHandle = handle.into();
+                if let Ok(native) = handle.update(cx, |_, window, _| crate::mac::window_ref(window))
+                {
+                    self.native.set(native);
+                }
+                *self.window.borrow_mut() = Some(handle);
+                *self.view.borrow_mut() = Some(view);
+            }
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
 mod fallback {
     use std::cell::RefCell;
 
@@ -394,12 +489,9 @@ mod fallback {
         WindowId, WindowKind, WindowOptions,
     };
 
-    use super::ChipContent;
     use super::super::DragPreview;
+    use super::ChipContent;
 
-    /// Opens and closes a gpui window per drag, which is what this platform did
-    /// before the Windows path stopped needing a renderer. Pending the same
-    /// treatment.
     pub(crate) struct Chip {
         window: RefCell<Option<gpui::AnyWindowHandle>>,
         view: RefCell<Option<Entity<DragPreview>>>,
