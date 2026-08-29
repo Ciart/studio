@@ -5,9 +5,9 @@ use std::{
 };
 
 use gpui::{
-    AnyElement, AnyView, AnyWindowHandle, App, Axis, Bounds, Div, Entity, ExternalDragPayload,
+    AnyElement, AnyView, AnyWindowHandle, App, Axis, Bounds, DispatchPhase, Div, Entity,
     InteractiveElement, IntoElement, MouseButton, MouseMoveEvent, MouseUpEvent, ParentElement,
-    Pixels, Point, Stateful, StatefulInteractiveElement, Styled, WeakEntity, Window, div,
+    Pixels, Point, Stateful, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
     prelude::*, px, rgb, rgba,
 };
 use gpui_base::{
@@ -30,6 +30,7 @@ use super::{
     },
 };
 use crate::{
+    caption,
     panels::{empty_hint, icon},
     theme::{BACKDROP, CANVAS, DROP_TARGET, FONT, FONT_SIZE, HAIRLINE, MUTED, PANEL, RADIUS, TEXT},
 };
@@ -37,6 +38,7 @@ use crate::{
 #[derive(Clone)]
 pub struct DockSkin {
     kind: AreaKind,
+    window: AnyWindowHandle,
     area: WeakEntity<DockArea>,
     drag: DragState,
     resizing: Rc<RefCell<Option<DockContext>>>,
@@ -66,6 +68,7 @@ impl DockSkin {
         });
         Self {
             kind,
+            window,
             area,
             drag,
             resizing: Rc::new(RefCell::new(None)),
@@ -104,6 +107,12 @@ impl DockSkin {
         });
         *drag.main_area.borrow_mut() = Some(area.downgrade());
         *drag.main_window.borrow_mut() = Some(window.window_handle());
+        drag.open_chip(cx);
+        cx.on_window_closed({
+            let drag = drag.clone();
+            move |cx, _| crate::dock::detach::close_spare_if_last(&drag, cx)
+        })
+        .detach();
         (
             area,
             skin.expect("DockSkin built in the DockArea constructor"),
@@ -202,46 +211,56 @@ impl DockSkin {
             })
             .child(empty_hint("Drop panels here"))
             .drag_over::<AnyDrag>({
-                let dragging_zone = self.drag.dragging_zone.clone();
-                move |style, _, _, _| match drop_allowed(kind, dragging_zone.get(), placement) {
+                let drag_state = self.drag.clone();
+                let handle = self.window;
+                move |style, _, _, _| match !drag_state.is_dragged_window(handle)
+                    && drop_allowed(kind, drag_state.dragging_zone.get(), placement)
+                {
                     true => style.bg(rgba(DROP_TARGET)),
                     false => style,
                 }
             })
-            .on_drop(move |item: &AnyDrag, window, cx| {
-                let Some(drag) = item.value().downcast_ref::<PanelDrag>() else {
-                    return;
-                };
-                if !drop_allowed(kind, zone_of(&drag.view, cx), placement) {
-                    return;
-                }
-                let Some(area) = area.upgrade() else {
-                    return;
-                };
-
-                let same_area = living_source(drag).entity_id() == area.entity_id();
-                if same_area {
-                    let root = area.read(cx).layout(placement).map(|tree| tree.root().id());
-                    let Some(root) = root else {
-                        return;
-                    };
-                    if drag.landed.replace(true) {
+            .on_drop({
+                let drag_state = self.drag.clone();
+                let handle = self.window;
+                move |item: &AnyDrag, window, cx| {
+                    if drag_state.is_dragged_window(handle) {
                         return;
                     }
-                    area.update(cx, |area, cx| {
-                        area.move_panel(
-                            drag.panel,
-                            InsertTarget::Split {
-                                node: root,
-                                placement: Placement::Right,
-                                size: None,
-                            },
-                            window,
-                            cx,
-                        )
-                    });
-                } else {
-                    transfer_panel(drag, &area, placement, None, window, cx);
+                    let Some(drag) = item.value().downcast_ref::<PanelDrag>() else {
+                        return;
+                    };
+                    if !drop_allowed(kind, zone_of(&drag.view, cx), placement) {
+                        return;
+                    }
+                    let Some(area) = area.upgrade() else {
+                        return;
+                    };
+
+                    let same_area = living_source(drag).entity_id() == area.entity_id();
+                    if same_area {
+                        let root = area.read(cx).layout(placement).map(|tree| tree.root().id());
+                        let Some(root) = root else {
+                            return;
+                        };
+                        if drag.landed.replace(true) {
+                            return;
+                        }
+                        area.update(cx, |area, cx| {
+                            area.move_panel(
+                                drag.panel,
+                                InsertTarget::Split {
+                                    node: root,
+                                    placement: Placement::Right,
+                                    size: None,
+                                },
+                                window,
+                                cx,
+                            )
+                        });
+                    } else {
+                        transfer_panel(drag, &area, placement, None, window, cx);
+                    }
                 }
             })
     }
@@ -264,7 +283,6 @@ impl DockAreaRenderer for DockSkin {
             .text_size(px(FONT_SIZE))
             .text_color(rgba(TEXT))
             .on_mouse_move(move |event: &MouseMoveEvent, window, cx| {
-                drag.promote_if_pending(window, cx);
                 let dock = dragging.borrow().clone();
                 let Some(dock) = dock else {
                     return;
@@ -274,6 +292,23 @@ impl DockAreaRenderer for DockSkin {
             .on_mouse_up(MouseButton::Left, move |_: &MouseUpEvent, _, _| {
                 finished.borrow_mut().take();
             })
+            // On the window, not the element: a tear-off leaves the element.
+            .child(
+                canvas(
+                    |_, _, _| (),
+                    move |_, _, window, _| {
+                        let drag = drag.clone();
+                        window.on_mouse_event(move |_: &MouseMoveEvent, phase, window, cx| {
+                            if phase == DispatchPhase::Bubble {
+                                drag.pointer_moved(window, cx);
+                            }
+                        });
+                    },
+                )
+                .absolute()
+                .w_0()
+                .h_0(),
+            )
     }
 
     fn center_frame(&self, _: &mut Window, _: &mut App) -> Stateful<Div> {
@@ -365,7 +400,12 @@ impl TabGroupRenderer for DockSkin {
             .when(!self.kind.is_detached(), |this| this.mb(px(1.)))
     }
 
-    fn content_frame(&self, group: &TabGroupContext, _: &mut Window, cx: &mut App) -> Stateful<Div> {
+    fn content_frame(
+        &self,
+        group: &TabGroupContext,
+        _: &mut Window,
+        cx: &mut App,
+    ) -> Stateful<Div> {
         let node = group.node();
         let in_dock = self.group_zone(node, cx) == PanelZone::Dock;
         let background = group
@@ -483,99 +523,119 @@ impl TabGroupRenderer for DockSkin {
             })
             .drag_over::<AnyDrag>({
                 let skin = self.clone();
-                move |style, _, _, _| match skin.drag.drag_accepted(group_zone) {
+                move |style, _, _, _| match !skin.drag.is_dragged_window(skin.window)
+                    && skin.drag.drag_accepted(group_zone)
+                {
                     true => style.bg(rgba(DROP_TARGET)),
                     false => style,
                 }
             })
             .on_drop({
                 let group = group.clone();
-                move |item: &AnyDrag, window, cx| group.drop_item(item.clone(), None, window, cx)
+                let skin = self.clone();
+                move |item: &AnyDrag, window, cx| {
+                    if skin.drag.is_dragged_window(skin.window) {
+                        return;
+                    }
+                    group.drop_item(item.clone(), None, window, cx)
+                }
             })
             .child(h_flex().h_full().items_center().children(
                 group.panels().iter().enumerate().map(|(ix, panel)| {
-                let selected = ix == group.active_ix();
-                let title = panel_title(panel, cx);
-                let zone = zone_of(panel, cx);
-                let panel_id = panel.panel_id(cx);
-                let drag = AnyDrag::new(PanelDrag {
-                    panel: panel_id,
-                    source: Some(group.node()),
-                    source_area: self.area.clone(),
-                    source_window: window_handle,
-                    view: panel.clone(),
-                    detached: RefCell::new(
-                        single_window_panel.then(|| (window_handle, self.area.clone())),
-                    ),
-                    landed: Cell::new(false),
-                });
-                div()
-                    .id(("tab", ix))
-                    .on_mouse_down(MouseButton::Left, {
-                        let press = self.press.clone();
-                        move |event, _, _| press.set(event.position)
-                    })
-                    .on_prepaint({
-                        let cache = self.tab_bounds.clone();
-                        move |bounds, _, _| {
-                            cache.borrow_mut().insert(panel_id, bounds);
-                        }
-                    })
-                    .h_full()
-                    .flex()
-                    .items_center()
-                    .cursor_pointer()
-                    .map(|this| match in_dock {
-                        true => this.pr(px(12.)),
-                        false => this
-                            .pl(px(12.))
-                            .pr(px(4.))
-                            .rounded_t(px(RADIUS))
-                            .border_t_1()
-                            .border_color(rgba(if selected { HAIRLINE } else { 0 }))
-                            .when(selected, |this| this.bg(rgb(CANVAS))),
-                    })
-                    .text_color(rgba(if selected { TEXT } else { MUTED }))
-                    .child(title.clone())
-                    .when(!in_dock, |this| {
-                        this.child(icon("icons/close_small.svg", 20., 20., TEXT))
-                    })
-                    .on_click({
-                        let group = group.clone();
-                        move |_, window, cx| group.select_tab(ix, window, cx)
-                    })
-                    .on_drag(drag.clone(), {
-                        let state = self.drag.clone();
-                        let cache = self.tab_bounds.clone();
-                        let press = self.press.clone();
-                        move |_, _, window, cx| {
-                            let grab = cache
-                                .borrow()
-                                .get(&panel_id)
-                                .map(|bounds| Grab {
-                                    offset: grab_within(press.get(), *bounds),
-                                    size: bounds.size,
+                    let selected = ix == group.active_ix();
+                    let title = panel_title(panel, cx);
+                    let zone = zone_of(panel, cx);
+                    let panel_id = panel.panel_id(cx);
+                    let drag = AnyDrag::new(PanelDrag {
+                        panel: panel_id,
+                        source: Some(group.node()),
+                        source_area: self.area.clone(),
+                        source_window: window_handle,
+                        view: panel.clone(),
+                        detached: RefCell::new(
+                            single_window_panel.then(|| (window_handle, self.area.clone())),
+                        ),
+                        landed: Cell::new(false),
+                    });
+                    div()
+                        .id(("tab", ix))
+                        .on_mouse_down(MouseButton::Left, {
+                            let press = self.press.clone();
+                            let drag_state = self.drag.clone();
+                            let title = title.clone();
+                            move |event, window, cx| {
+                                press.set(event.position);
+                                drag_state.prime_chip(title.clone(), window.scale_factor(), cx);
+                            }
+                        })
+                        .on_prepaint({
+                            let cache = self.tab_bounds.clone();
+                            move |bounds, _, _| {
+                                cache.borrow_mut().insert(panel_id, bounds);
+                            }
+                        })
+                        .h_full()
+                        .flex()
+                        .items_center()
+                        .cursor_pointer()
+                        .map(|this| match in_dock {
+                            true => this,
+                            false => this
+                                .rounded_t(px(RADIUS))
+                                .border_t_1()
+                                .border_color(rgba(if selected { HAIRLINE } else { 0 }))
+                                .when(selected, |this| this.bg(rgb(CANVAS))),
+                        })
+                        .text_color(rgba(if selected { TEXT } else { MUTED }))
+                        // The padding sits inside so `on_prepaint` above measures
+                        // the whole tab, not the content box.
+                        .child(
+                            div()
+                                .h_full()
+                                .flex()
+                                .items_center()
+                                .map(|this| match in_dock {
+                                    true => this.pr(px(12.)),
+                                    false => this.pl(px(12.)).pr(px(4.)),
                                 })
-                                .unwrap_or_default();
-                            let preview = state.start_drag_preview(
-                                title.clone(),
-                                zone,
-                                drag.clone(),
-                                grab,
-                                window,
-                                cx,
-                            );
-                            cx.observe_release(&preview, {
-                                let state = state.clone();
-                                move |_, cx| state.finish_drag_preview(cx)
-                            })
-                            .detach();
-                            preview
-                        }
-                    })
-                    .external_drag_payload::<AnyDrag>(|_, _, _| {
-                        Some(ExternalDragPayload::AppPrivate)
-                    })
+                                .child(title.clone())
+                                .when(!in_dock, |this| {
+                                    this.child(icon("icons/close_small.svg", 20., 20., TEXT))
+                                }),
+                        )
+                        .on_click({
+                            let group = group.clone();
+                            move |_, window, cx| group.select_tab(ix, window, cx)
+                        })
+                        .on_drag(drag.clone(), {
+                            let state = self.drag.clone();
+                            let cache = self.tab_bounds.clone();
+                            let press = self.press.clone();
+                            move |_, _, window, cx| {
+                                let grab = cache
+                                    .borrow()
+                                    .get(&panel_id)
+                                    .map(|bounds| Grab {
+                                        offset: grab_within(press.get(), *bounds),
+                                        size: bounds.size,
+                                    })
+                                    .unwrap_or_default();
+                                let preview = state.start_drag_preview(
+                                    title.clone(),
+                                    zone,
+                                    drag.clone(),
+                                    grab,
+                                    window,
+                                    cx,
+                                );
+                                cx.observe_release(&preview, {
+                                    let state = state.clone();
+                                    move |_, cx| state.finish_drag_preview(cx)
+                                })
+                                .detach();
+                                preview
+                            }
+                        })
                 }),
             ))
             .when(in_titlebar, |this| {
@@ -589,6 +649,7 @@ impl TabGroupRenderer for DockSkin {
                         }
                     },
                 ))
+                .child(caption::caption_buttons(window))
             })
             .when(in_dock, |this| {
                 this.child(icon("icons/more_horiz.svg", 20., 8., MUTED))

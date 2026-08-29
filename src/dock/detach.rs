@@ -1,4 +1,4 @@
-use std::{rc::Rc, sync::Arc};
+use std::{cell::Cell, rc::Rc, sync::Arc};
 
 use gpui::{
     AnyWindowHandle, App, Bounds, Context, Entity, IntoElement, ParentElement, Pixels, Point,
@@ -21,10 +21,127 @@ use crate::{
     theme::{BACKDROP, FONT, FONT_SIZE, TEXT},
 };
 
+pub(crate) const SPARE_IDLE: std::time::Duration = std::time::Duration::from_secs(60);
+
+#[cfg(target_os = "windows")]
+fn raw_hwnd(window: &Window) -> Option<windows::Win32::Foundation::HWND> {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    let handle = HasWindowHandle::window_handle(window).ok()?;
+    let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+        return None;
+    };
+    Some(windows::Win32::Foundation::HWND(
+        handle.hwnd.get() as *mut std::ffi::c_void
+    ))
+}
+
+#[cfg(target_os = "windows")]
+fn set_transitions(hwnd: windows::Win32::Foundation::HWND, enabled: bool) {
+    use windows::Win32::Graphics::Dwm::{DWMWA_TRANSITIONS_FORCEDISABLED, DwmSetWindowAttribute};
+    use windows::core::BOOL;
+
+    let disabled: BOOL = (!enabled).into();
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_TRANSITIONS_FORCEDISABLED,
+            &disabled as *const _ as _,
+            std::mem::size_of::<BOOL>() as u32,
+        );
+    }
+}
+
+/// The spare opens with `show: false`, so [`reveal`] is its first showing and
+/// DWM would animate it in at the drop point.
+#[cfg(target_os = "windows")]
+fn conceal(window: &Window) {
+    let Some(hwnd) = raw_hwnd(window) else {
+        return;
+    };
+    set_transitions(hwnd, false);
+}
+
+/// Clips the window away instead of hiding it: `SW_HIDE` would drop the mouse
+/// capture and end the move loop under the still-held button.
+#[cfg(target_os = "windows")]
+pub(crate) fn set_masked(window: &Window, masked: bool) {
+    use windows::Win32::Graphics::Gdi::{CreateRectRgn, SetWindowRgn};
+
+    let Some(hwnd) = raw_hwnd(window) else {
+        return;
+    };
+    unsafe {
+        let region = if masked {
+            Some(CreateRectRgn(0, 0, 0, 0))
+        } else {
+            None
+        };
+        SetWindowRgn(hwnd, region, true);
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn set_masked(_: &Window, _: bool) {}
+
+/// Places the window and shows it in one call, so it never appears at the
+/// bounds it was opened with.
+#[cfg(target_os = "windows")]
+fn reveal(window: &Window, origin: Point<Pixels>) {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        HWND_TOP, SWP_NOSIZE, SWP_SHOWWINDOW, SetWindowPos,
+    };
+
+    let Some(hwnd) = raw_hwnd(window) else {
+        return;
+    };
+    let scale = window.scale_factor();
+    unsafe {
+        let _ = SetWindowPos(
+            hwnd,
+            Some(HWND_TOP),
+            (origin.x.as_f32() * scale).round() as i32,
+            (origin.y.as_f32() * scale).round() as i32,
+            0,
+            0,
+            SWP_NOSIZE | SWP_SHOWWINDOW,
+        );
+    }
+    // It is an ordinary window from here on, and the user closes those.
+    set_transitions(hwnd, true);
+}
+
+#[cfg(not(target_os = "windows"))]
+fn conceal(_: &Window) {}
+
+#[cfg(not(target_os = "windows"))]
+fn reveal(window: &mut Window, origin: Point<Pixels>) {
+    window.set_origin(origin);
+}
+
+/// A detached window opened ahead of the tear-off that will fill it. Kept
+/// hidden and empty until [`fill_spare`] hands it a panel.
+pub(crate) struct SpareWindow {
+    handle: AnyWindowHandle,
+    area: WeakEntity<DockArea>,
+    adopted: Rc<Cell<bool>>,
+    /// The dock skin bakes `AreaKind::Detached(zone)` in at construction, so a
+    /// spare can only stand in for a drag of the same zone.
+    zone: PanelZone,
+}
+
+impl SpareWindow {
+    pub(crate) fn window_id(&self) -> gpui::WindowId {
+        self.handle.window_id()
+    }
+}
+
 struct DetachedWindow {
     kind: AreaKind,
+    drag: DragState,
     area: Entity<DockArea>,
     fullscreen: FullscreenTitlebar,
+    adopted: Rc<Cell<bool>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -34,8 +151,9 @@ impl DetachedWindow {
         panel: Arc<dyn PanelView>,
         zone: PanelZone,
         origin: Option<Point<Pixels>>,
+        insert: bool,
         cx: &mut App,
-    ) -> Option<(AnyWindowHandle, WeakEntity<DockArea>)> {
+    ) -> Option<SpareWindow> {
         let title = panel_title(&panel, cx);
         let kind = AreaKind::Detached(zone);
         let home = match zone {
@@ -47,7 +165,7 @@ impl DetachedWindow {
         let area_id = SharedString::from(format!("detached-{id}"));
 
         let window_size = size(px(420.), px(320.));
-        let bounds = match origin {
+        let bounds = match origin.filter(|_| insert) {
             Some(cursor) => Bounds {
                 origin: state.window_origin(cursor),
                 size: window_size,
@@ -55,6 +173,7 @@ impl DetachedWindow {
             None => Bounds::centered(None, window_size, cx),
         };
 
+        let adopted = Rc::new(Cell::new(insert));
         let state = state.clone();
         let mut opened_area = None;
         let opened = cx.open_window(
@@ -66,9 +185,12 @@ impl DetachedWindow {
                     traffic_light_position: Some(point(px(13.), px(13.))),
                 }),
                 app_owns_titlebar_drag: true,
+                focus: insert,
+                show: insert,
                 ..Default::default()
             },
             |window, cx| {
+                let adopted = adopted.clone();
                 let view = cx.new(|cx| {
                     let area = cx.new(|cx| {
                         let skin = Rc::new(DockSkin::new(
@@ -79,19 +201,39 @@ impl DetachedWindow {
                         ));
                         DockArea::new(area_id.clone(), Some(1), window, cx).with_renderer(skin)
                     });
-                    area.update(cx, |area, cx| {
-                        area.add_panel_view(panel.clone(), DockPlacement::Center, None, window, cx)
-                    });
+                    if insert {
+                        area.update(cx, |area, cx| {
+                            area.add_panel_view(
+                                panel.clone(),
+                                DockPlacement::Center,
+                                None,
+                                window,
+                                cx,
+                            )
+                        });
+                    }
                     let subscription = cx.subscribe_in(&area, window, Self::on_area_event);
+                    // The move loop drives the window, not the pointer, so where
+                    // it ends up is the only report of where the pointer went.
+                    let moved = cx.observe_window_bounds(window, Self::on_bounds_changed);
                     DetachedWindow {
                         kind,
+                        drag: state.clone(),
                         area,
                         fullscreen: FullscreenTitlebar::default(),
-                        _subscriptions: vec![subscription],
+                        adopted,
+                        _subscriptions: vec![subscription, moved],
                     }
                 });
                 let area = view.read(cx).area.clone();
                 opened_area = Some(area.downgrade());
+                window.on_move_loop_ended(cx, {
+                    let state = state.clone();
+                    move |window, cx| {
+                        let handle = window.window_handle();
+                        state.window_move_ended(handle, window, cx);
+                    }
+                });
                 window.on_window_should_close(cx, {
                     let state = state.clone();
                     move |_, cx| {
@@ -129,7 +271,18 @@ impl DetachedWindow {
                 view
             },
         );
-        opened.ok().map(Into::into).zip(opened_area)
+        let handle: AnyWindowHandle = opened.ok()?.into();
+        Some(SpareWindow {
+            handle,
+            area: opened_area?,
+            adopted,
+            zone,
+        })
+    }
+
+    fn on_bounds_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let handle = window.window_handle();
+        self.drag.clone().window_dragged(handle, window, cx);
     }
 
     fn on_area_event(
@@ -141,7 +294,8 @@ impl DetachedWindow {
     ) {
         match event {
             DockEvent::LayoutChanged => {
-                if center_panels(area.read(cx)).is_empty() {
+                // A spare is legitimately empty until it is adopted.
+                if self.adopted.get() && center_panels(area.read(cx)).is_empty() {
                     let handle = window.window_handle();
                     cx.defer(move |cx| {
                         let _ = handle.update(cx, |_, window, _| window.remove_window());
@@ -149,6 +303,9 @@ impl DetachedWindow {
                 }
             }
             DockEvent::DragDrop { item, target } => {
+                if self.drag.is_dragged_window(window.window_handle()) {
+                    return;
+                }
                 apply_drop_in(self.kind, area, item, target, window, cx)
             }
         }
@@ -185,7 +342,111 @@ pub(crate) fn detach_panel(
     let entity = panel_entity(&panel)?;
     let zone = zone_of(&panel, cx)?;
     area.update(cx, |area, cx| area.remove_panel(entity, window, cx));
-    DetachedWindow::open(state, panel, zone, origin, cx)
+
+    let spare = {
+        let mut spares = state.spares.borrow_mut();
+        spares
+            .iter()
+            .position(|spare| spare.zone == zone)
+            .map(|at| spares.remove(at))
+    };
+    if let Some(spare) = spare {
+        if let Some(adopted) = fill_spare(state, &spare, panel.clone(), origin, cx) {
+            return Some(adopted);
+        }
+        let _ = spare
+            .handle
+            .update(cx, |_, window, _| window.remove_window());
+    }
+    DetachedWindow::open(state, panel, zone, origin, true, cx).map(|spare| {
+        let _ = spare
+            .handle
+            .update(cx, |_, window, _| window.start_window_move());
+        (spare.handle, spare.area)
+    })
+}
+
+pub(crate) fn has_spare_for(state: &DragState, panel: &Arc<dyn PanelView>, cx: &App) -> bool {
+    let Some(zone) = zone_of(panel, cx) else {
+        return true;
+    };
+    state.spares.borrow().iter().any(|spare| spare.zone == zone)
+}
+
+pub(crate) fn prepare_spare(state: &DragState, panel: &Arc<dyn PanelView>, cx: &mut App) {
+    if !cfg!(target_os = "windows") {
+        return;
+    }
+    let Some(zone) = zone_of(panel, cx) else {
+        return;
+    };
+    if state.spares.borrow().iter().any(|spare| spare.zone == zone) {
+        return;
+    }
+    if let Some(spare) = DetachedWindow::open(state, panel.clone(), zone, None, false, cx) {
+        let _ = spare.handle.update(cx, |_, window, _| conceal(window));
+        state.spares.borrow_mut().push(spare);
+    }
+}
+
+pub(crate) fn close_spares(state: &DragState, cx: &mut App) {
+    // Closing a window runs the window-closed observers, and those read
+    // `spares`, so the borrow has to be over before the first one goes.
+    let spares: Vec<SpareWindow> = state.spares.borrow_mut().drain(..).collect();
+    for spare in spares {
+        let _ = spare
+            .handle
+            .update(cx, |_, window, _| window.remove_window());
+    }
+}
+
+/// Closes the spares once they are the only thing keeping the app alive.
+/// Without this, `QuitMode::Default` never sees an empty window list.
+pub(crate) fn close_spare_if_last(state: &DragState, cx: &mut App) {
+    let ids: Vec<_> = state
+        .spares
+        .borrow()
+        .iter()
+        .map(|spare| spare.window_id())
+        .collect();
+    if ids.is_empty()
+        || !cx
+            .windows()
+            .iter()
+            .all(|handle| ids.contains(&handle.window_id()))
+    {
+        return;
+    }
+    for spare in state.spares.borrow_mut().drain(..) {
+        let _ = spare
+            .handle
+            .update(cx, |_, window, _| window.remove_window());
+    }
+}
+
+fn fill_spare(
+    state: &DragState,
+    spare: &SpareWindow,
+    panel: Arc<dyn PanelView>,
+    origin: Option<Point<Pixels>>,
+    cx: &mut App,
+) -> Option<(AnyWindowHandle, WeakEntity<DockArea>)> {
+    let target = spare.area.upgrade()?;
+    let placed = spare.handle.update(cx, |_, window, cx| {
+        window.set_window_title(&panel_title(&panel, cx));
+        target.update(cx, |target, cx| {
+            target.add_panel_view(panel, DockPlacement::Center, None, window, cx)
+        });
+        if let Some(cursor) = origin {
+            reveal(window, state.window_origin(cursor));
+        }
+        // From here the platform's move loop carries the window, so nothing in
+        // this app moves it again until the drag ends.
+        window.start_window_move();
+    });
+    placed.ok()?;
+    spare.adopted.set(true);
+    Some((spare.handle, spare.area.clone()))
 }
 
 pub(crate) fn living_source(drag: &PanelDrag) -> WeakEntity<DockArea> {

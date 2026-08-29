@@ -240,13 +240,12 @@ fn timeline() -> AnyElement {
                 .w(px(160.))
                 .h(px(30.))
                 .bg(rgb(TRACK))
-                .child(
-                    div()
-                        .absolute()
-                        .left(px(4.))
-                        .top(px(5.))
-                        .child(icon("icons/plus.svg", 20., 20., TEXT)),
-                ),
+                .child(div().absolute().left(px(4.)).top(px(5.)).child(icon(
+                    "icons/plus.svg",
+                    20.,
+                    20.,
+                    TEXT,
+                ))),
         )
         .child(layer_row(30., "Layer 2", true, true))
         .child(layer_row(61., "Layer 1", false, false));

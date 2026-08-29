@@ -5,9 +5,8 @@ use std::{
 };
 
 use gpui::{
-    AnyWindowHandle, App, AppContext, Bounds, Entity, Pixels, Point, SharedString, Size,
-    WeakEntity, Window, WindowBackgroundAppearance, WindowBounds, WindowKind, WindowOptions, point,
-    px, size,
+    AnyWindowHandle, App, AppContext, Entity, Pixels, Point, SharedString, Size, WeakEntity,
+    Window, point, px, size,
 };
 use gpui_base::{
     Placement,
@@ -15,10 +14,14 @@ use gpui_base::{
 };
 
 use super::{
-    AreaKind, DragPreview, HiddenPreview, PanelDrag, PanelZone, TAB_HEIGHT, TRAFFIC_LIGHT_PAD,
-    detach::{apply_drop_in, detach_panel, transfer_panel},
+    AreaKind, HiddenPreview, PanelDrag, PanelZone, TAB_HEIGHT, TRAFFIC_LIGHT_PAD,
+    chip::{Chip, ChipContent},
+    detach::{
+        SPARE_IDLE, SpareWindow, apply_drop_in, close_spares, detach_panel, has_spare_for,
+        prepare_spare, set_masked, transfer_panel,
+    },
     util::{
-        EmptyDockCache, GroupBoundsCache, drop_allowed, panel_title, placement_of, split_zone_at,
+        EmptyDockCache, GroupBoundsCache, center_panels, drop_allowed, placement_of, split_zone_at,
         zone_of,
     },
 };
@@ -77,15 +80,17 @@ pub(crate) struct DragState {
     pub(crate) main_window: Rc<RefCell<Option<AnyWindowHandle>>>,
     pub(crate) dragging_zone: Rc<Cell<Option<PanelZone>>>,
     pub(crate) hovered_group_accepts: Rc<Cell<bool>>,
-    pub(crate) preview_window: Rc<RefCell<Option<AnyWindowHandle>>>,
+    pub(crate) chip: Rc<Chip>,
     pub(crate) attached_window: Rc<RefCell<Option<AnyWindowHandle>>>,
-    pub(crate) promote_pending: Rc<Cell<bool>>,
     pub(crate) next_window_id: Rc<Cell<usize>>,
     pub(crate) areas: Rc<RefCell<Vec<AreaEntry>>>,
     pub(crate) dragged: Rc<RefCell<Option<AnyDrag>>>,
     pub(crate) merge_target: Rc<RefCell<Option<MergeTarget>>>,
     pub(crate) last_position: Rc<Cell<Option<Point<Pixels>>>>,
-    pub(crate) detached_size: Rc<Cell<Option<Size<Pixels>>>>,
+    pub(crate) hidden: Rc<Cell<bool>>,
+    pub(crate) spares: Rc<RefCell<Vec<SpareWindow>>>,
+    pub(crate) spares_used: Rc<Cell<u64>>,
+    pub(crate) spare_pending: Rc<Cell<bool>>,
     pub(crate) grab: Rc<Cell<Grab>>,
 }
 
@@ -96,15 +101,17 @@ impl DragState {
             main_window: Rc::new(RefCell::new(None)),
             dragging_zone: Rc::new(Cell::new(None)),
             hovered_group_accepts: Rc::new(Cell::new(true)),
-            preview_window: Rc::new(RefCell::new(None)),
+            chip: Rc::new(Chip::new()),
             attached_window: Rc::new(RefCell::new(None)),
-            promote_pending: Rc::new(Cell::new(false)),
             next_window_id: Rc::new(Cell::new(0)),
             areas: Rc::new(RefCell::new(Vec::new())),
             dragged: Rc::new(RefCell::new(None)),
             merge_target: Rc::new(RefCell::new(None)),
             last_position: Rc::new(Cell::new(None)),
-            detached_size: Rc::new(Cell::new(None)),
+            hidden: Rc::new(Cell::new(false)),
+            spares: Rc::new(RefCell::new(Vec::new())),
+            spares_used: Rc::new(Cell::new(0)),
+            spare_pending: Rc::new(Cell::new(false)),
             grab: Rc::new(Cell::new(Grab::default())),
         }
     }
@@ -203,11 +210,20 @@ impl DragState {
         self.dragging_zone.get() == Some(zone)
     }
 
-    pub(crate) fn promote_if_pending(&self, window: &mut Window, cx: &mut App) {
-        if self.promote_pending.get() && cx.has_active_drag() {
-            self.promote_pending.set(false);
-            window.promote_active_drag_to_platform(cx);
-        }
+    pub(crate) fn is_dragged_window(&self, handle: AnyWindowHandle) -> bool {
+        self.attached_window
+            .borrow()
+            .is_some_and(|dragged| dragged.window_id() == handle.window_id())
+    }
+
+    /// Drives the chip phase from pointer motion; once a window is attached the
+    /// platform's move loop owns the drag and this goes quiet.
+    pub(crate) fn pointer_moved(&self, window: &mut Window, cx: &mut App) {
+        let Some(drag) = self.dragged.borrow().clone() else {
+            return;
+        };
+        let position = window.bounds().origin + window.mouse_position();
+        self.track(&drag, position, window, cx);
     }
 
     pub(crate) fn chip_origin(&self, cursor: Point<Pixels>) -> Point<Pixels> {
@@ -228,7 +244,7 @@ impl DragState {
         cx: &mut App,
     ) -> Entity<HiddenPreview> {
         self.dragging_zone.set(zone);
-        self.promote_pending.set(true);
+        self.last_position.set(None);
         *self.dragged.borrow_mut() = Some(drag.clone());
         self.grab.set(grab);
 
@@ -241,113 +257,139 @@ impl DragState {
 
         if let Some((attached, _)) = already_attached {
             *self.attached_window.borrow_mut() = Some(attached);
+            self.prime_chip(title.clone(), window.scale_factor(), cx);
+            self.move_chip(None, cx);
             if attached.window_id() == window.window_handle().window_id() {
-                window.set_accepts_drags(false);
+                window.start_window_move();
             } else {
-                let _ = attached.update(cx, |_, window, _| window.set_accepts_drags(false));
+                let _ = attached.update(cx, |_, window, _| window.start_window_move());
             }
         } else {
-            self.open_chip(title.clone(), cursor, cx);
+            self.prime_chip(title.clone(), window.scale_factor(), cx);
+            self.move_chip(Some(self.chip_origin(cursor)), cx);
         }
-
-        cx.set_platform_drag_moved_handler(Some(Box::new({
-            let state = self.clone();
-            move |position, window, cx| state.drag_session_moved(&drag, position, window, cx)
-        })));
 
         cx.new(|_| HiddenPreview)
     }
 
-    pub(crate) fn open_chip(&self, title: SharedString, cursor: Point<Pixels>, cx: &mut App) {
-        let bounds = Bounds {
-            origin: self.chip_origin(cursor),
-            size: self.grab.get().size,
-        };
-        let preview = cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                titlebar: None,
-                focus: false,
-                show: true,
-                kind: WindowKind::Overlay,
-                is_movable: false,
-                window_background: WindowBackgroundAppearance::Transparent,
-                ..Default::default()
+    pub(crate) fn open_chip(&self, cx: &mut App) {
+        self.chip.open(cx);
+    }
+
+    pub(crate) fn prime_chip(&self, title: SharedString, scale: f32, cx: &mut App) {
+        self.chip.prime(
+            ChipContent {
+                title,
+                size: self.grab.get().size,
+                scale,
             },
-            move |_, cx| cx.new(|_| DragPreview { title }),
+            cx,
         );
-        if let Ok(handle) = preview {
-            *self.preview_window.borrow_mut() = Some(handle.into());
+    }
+
+    fn move_chip(&self, origin: Option<Point<Pixels>>, cx: &mut App) {
+        match origin {
+            Some(origin) => self.chip.show_at(origin, cx),
+            None => self.chip.hide(cx),
         }
     }
 
-    pub(crate) fn with_attached<R>(
-        &self,
-        handle: AnyWindowHandle,
-        source_window: &mut Window,
-        cx: &mut App,
-        act: impl FnOnce(&mut Window) -> R,
-    ) -> Option<R> {
-        if handle.window_id() == source_window.window_handle().window_id() {
-            Some(act(source_window))
-        } else {
-            handle.update(cx, |_, window, _| act(window)).ok()
+    /// Schedules the spare for the next frame: building a window blocks the main
+    /// thread, so it must not land in the dispatch that is also moving the chip.
+    fn prepare_spare_off_path(&self, view: Arc<dyn PanelView>, source: &mut Window, cx: &mut App) {
+        if self.spare_pending.replace(true) || has_spare_for(self, &view, cx) {
+            return;
         }
-    }
-
-    pub(crate) fn move_attached(
-        &self,
-        handle: AnyWindowHandle,
-        origin: Point<Pixels>,
-        source_window: &mut Window,
-        cx: &mut App,
-    ) {
-        self.with_attached(handle, source_window, cx, |window| {
-            window.set_origin(origin)
+        let state = self.clone();
+        source.on_next_frame(move |_, cx| {
+            state.spare_pending.set(false);
+            prepare_spare(&state, &view, cx);
         });
     }
 
-    pub(crate) fn collapse_to_chip(
-        &self,
-        payload: &PanelDrag,
-        handle: AnyWindowHandle,
-        position: Point<Pixels>,
-        source_window: &mut Window,
-        cx: &mut App,
-    ) {
-        if self.preview_window.borrow().is_none() {
-            let restore = self.with_attached(handle, source_window, cx, |window| {
-                let previous = window.bounds().size;
-                window.resize(size(px(1.), px(1.)));
-                previous
+    /// The drag that would have used a spare may never come, and each one holds
+    /// a real window open.
+    fn release_idle_spares(&self, cx: &mut App) {
+        let used = self.spares_used.get() + 1;
+        self.spares_used.set(used);
+        let state = self.clone();
+        cx.spawn(async move |cx| {
+            cx.background_executor().timer(SPARE_IDLE).await;
+            let _ = cx.update(|cx| {
+                if state.spares_used.get() == used {
+                    close_spares(&state, cx);
+                }
             });
-            self.detached_size.set(restore);
-            self.open_chip(panel_title(&payload.view, cx), position, cx);
-        }
-        self.move_attached(handle, position, source_window, cx);
-        if let Some(chip) = *self.preview_window.borrow() {
-            let origin = self.chip_origin(position);
-            let _ = chip.update(cx, |_, window, _| window.set_origin(origin));
-        }
+        })
+        .detach();
     }
 
-    pub(crate) fn expand_to_window(
+    /// Rebuilds the spare a tear-off consumed, once the drag is over.
+    fn refill_spare(&self, cx: &mut App) {
+        let Some(view) = self.dragged.borrow().as_ref().and_then(|drag| {
+            drag.value()
+                .downcast_ref::<PanelDrag>()
+                .map(|p| p.view.clone())
+        }) else {
+            return;
+        };
+        let Some(main) = *self.main_window.borrow() else {
+            return;
+        };
+        let state = self.clone();
+        let _ = main.update(cx, |_, window, _| {
+            window.on_next_frame(move |_, cx| prepare_spare(&state, &view, cx));
+        });
+    }
+
+    pub(crate) fn window_dragged(
         &self,
         handle: AnyWindowHandle,
-        position: Point<Pixels>,
-        source_window: &mut Window,
+        window: &mut Window,
         cx: &mut App,
     ) {
-        if let Some(chip) = self.preview_window.borrow_mut().take() {
-            let _ = chip.update(cx, |_, window, _| window.remove_window());
-            if let Some(size) = self.detached_size.take() {
-                self.with_attached(handle, source_window, cx, |window| window.resize(size));
-            }
+        if !self.is_dragged_window(handle) {
+            return;
         }
-        self.move_attached(handle, self.window_origin(position), source_window, cx);
+        let Some(drag) = self.dragged.borrow().clone() else {
+            return;
+        };
+        let Some(payload) = drag.value().downcast_ref::<PanelDrag>() else {
+            return;
+        };
+        let position =
+            window.bounds().origin + point(px(TRAFFIC_LIGHT_PAD), px(0.)) + self.grab.get().offset;
+        self.last_position.set(Some(position));
+        self.update_merge_target(&payload.view, Some(handle), position, window, cx);
+        if self.merge_target.borrow().is_some() {
+            if !self.hidden.replace(true) {
+                set_masked(window, true);
+            }
+            self.move_chip(Some(self.chip_origin(position)), cx);
+        } else if self.hidden.replace(false) {
+            set_masked(window, false);
+            self.move_chip(None, cx);
+        }
     }
 
-    pub(crate) fn drag_session_moved(
+    /// The move loop swallows the release that would have ended the gpui drag,
+    /// so the drop is confirmed from the loop's own end instead.
+    pub(crate) fn window_move_ended(
+        &self,
+        handle: AnyWindowHandle,
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        if !self.is_dragged_window(handle) {
+            return;
+        }
+        if self.hidden.replace(false) {
+            set_masked(window, false);
+        }
+        cx.stop_active_drag(window);
+    }
+
+    fn track(
         &self,
         drag: &AnyDrag,
         position: Point<Pixels>,
@@ -363,37 +405,40 @@ impl DragState {
         if payload.detached.borrow().is_some() {
             self.update_merge_target(&payload.view, attached, position, source_window, cx);
         }
-        if let Some(handle) = attached {
-            if self.merge_target.borrow().is_some() {
-                self.collapse_to_chip(payload, handle, position, source_window, cx);
-            } else {
-                self.expand_to_window(handle, position, source_window, cx);
-            }
+        if attached.is_some() {
             return;
         }
 
-        let preview = *self.preview_window.borrow();
+        let preview = self.chip.window_id();
+        let spares: Vec<_> = self
+            .spares
+            .borrow()
+            .iter()
+            .map(|spare| spare.window_id())
+            .collect();
         let source_id = source_window.window_handle().window_id();
         let over_own_window = source_window.bounds().contains(&position)
             || cx.windows().iter().any(|handle| {
                 handle.window_id() != source_id
-                    && preview.is_none_or(|preview| preview.window_id() != handle.window_id())
+                    && preview.is_none_or(|preview| preview != handle.window_id())
+                    && !spares.contains(&handle.window_id())
                     && handle
                         .update(cx, |_, window, _| window.bounds().contains(&position))
                         .unwrap_or(false)
             });
 
+        if !source_window.bounds().contains(&position) {
+            // Building it at drag start would charge every tab reorder for a
+            // window it never uses.
+            self.prepare_spare_off_path(payload.view.clone(), source_window, cx);
+        }
+
         if over_own_window || zone_of(&payload.view, cx).is_none() {
-            if let Some(handle) = preview {
-                let origin = self.chip_origin(position);
-                let _ = handle.update(cx, |_, window, _| window.set_origin(origin));
-            }
+            self.move_chip(Some(self.chip_origin(position)), cx);
             return;
         }
 
-        if let Some(handle) = self.preview_window.borrow_mut().take() {
-            let _ = handle.update(cx, |_, window, _| window.remove_window());
-        }
+        self.move_chip(None, cx);
         let torn_off = detach_panel(
             self,
             &payload.source_area,
@@ -403,22 +448,16 @@ impl DragState {
             cx,
         );
         if let Some((handle, area)) = torn_off {
-            let _ = handle.update(cx, |_, window, _| window.set_accepts_drags(false));
             *self.attached_window.borrow_mut() = Some(handle);
             *payload.detached.borrow_mut() = Some((handle, area));
         }
     }
 
     pub(crate) fn finish_drag_preview(&self, cx: &mut App) {
-        self.promote_pending.set(false);
-        cx.set_platform_drag_moved_handler(None);
-        if let Some(handle) = self.preview_window.borrow_mut().take() {
-            let _ = handle.update(cx, |_, window, _| window.remove_window());
-        }
+        self.move_chip(None, cx);
+        self.refill_spare(cx);
+        self.release_idle_spares(cx);
         let attached = self.attached_window.borrow_mut().take();
-        if let Some(handle) = attached {
-            let _ = handle.update(cx, |_, window, _| window.set_accepts_drags(true));
-        }
 
         let windows: Vec<AnyWindowHandle> = self
             .areas
@@ -436,26 +475,31 @@ impl DragState {
             return;
         };
         let target = self.merge_target.borrow_mut().take();
-        let position = self.last_position.take().map(|p| self.window_origin(p));
-        let restore = attached.zip(self.detached_size.take());
+        self.last_position.take();
+        let restore = self.hidden.replace(false).then_some(attached).flatten();
 
         cx.defer(move |cx| {
             if let Some(target) = target {
                 apply_merge(&item, target, cx);
             }
-            let landed = item
-                .value()
-                .downcast_ref::<PanelDrag>()
-                .is_some_and(|drag| drag.landed.get());
-            if let Some((handle, previous)) = restore
+            let payload = item.value().downcast_ref::<PanelDrag>();
+            let landed = payload.is_some_and(|drag| drag.landed.get());
+            // The merge left it with nothing, so it is already closing, and
+            // unmasking it first would play the close animation in view.
+            let closing = payload
+                .and_then(|drag| drag.detached.borrow().clone())
+                .and_then(|(_, area)| area.upgrade())
+                .is_some_and(|area| center_panels(area.read(cx)).is_empty());
+            if let Some(handle) = restore
+                && !closing
+            {
+                let _ = handle.update(cx, |_, window, _| set_masked(window, false));
+            }
+            // Activating mid-drag takes the foreground; see pitfalls 19.
+            if let Some(handle) = attached
                 && !landed
             {
-                let _ = handle.update(cx, |_, window, _| {
-                    window.resize(previous);
-                    if let Some(origin) = position {
-                        window.set_origin(origin);
-                    }
-                });
+                let _ = handle.update(cx, |_, window, _| window.activate_window());
             }
         });
     }

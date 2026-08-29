@@ -1,3 +1,4 @@
+mod chip;
 mod detach;
 mod drag;
 mod skin;
@@ -94,6 +95,7 @@ pub(crate) struct PanelDrag {
     pub(crate) landed: Cell<bool>,
 }
 
+#[cfg_attr(target_os = "windows", allow(dead_code))]
 pub(crate) struct DragPreview {
     pub(crate) title: SharedString,
 }

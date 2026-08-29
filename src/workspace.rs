@@ -7,6 +7,7 @@ use gpui::{
 use gpui_base::dock::{DockArea, DockEvent, DockLayout, DockPlacement};
 
 use crate::{
+    caption,
     dock::{self, DockPanel, DockSkin, PanelZone},
     fullscreen::FullscreenTitlebar,
     panels::PanelKind,
@@ -105,9 +106,17 @@ impl Render for Workspace {
                     .flex_none()
                     .flex()
                     .items_center()
-                    .justify_center()
                     .window_control_area(WindowControlArea::Drag)
-                    .child("Ciart Studio"),
+                    .child(div().w(px(caption::caption_buttons_width())).flex_none())
+                    .child(
+                        div()
+                            .flex_1()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .child("Ciart Studio"),
+                    )
+                    .child(caption::caption_buttons(window)),
             )
             .child(div().flex_1().min_h(px(0.)).child(self.area.clone()))
             .child(

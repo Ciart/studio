@@ -89,8 +89,7 @@ mod mac {
             return;
         };
         unsafe {
-            let name: *mut Object =
-                msg_send![class!(NSString), stringWithUTF8String: c"studio-fullscreen-lights".as_ptr()];
+            let name: *mut Object = msg_send![class!(NSString), stringWithUTF8String: c"studio-fullscreen-lights".as_ptr()];
             let toolbar: *mut Object = msg_send![class!(NSToolbar), alloc];
             let toolbar: *mut Object = msg_send![toolbar, initWithIdentifier: name];
             let _: () = msg_send![native, setToolbar: toolbar];
@@ -127,9 +126,8 @@ mod mac {
 
     extern "C" fn reveal_set_frame(this: &Object, sel: Sel, frame: Rect, display: bool) {
         unsafe {
-            let orig: extern "C" fn(&Object, Sel, Rect, bool) = std::mem::transmute(
-                ORIG_SET_FRAME.load(std::sync::atomic::Ordering::Relaxed),
-            );
+            let orig: extern "C" fn(&Object, Sel, Rect, bool) =
+                std::mem::transmute(ORIG_SET_FRAME.load(std::sync::atomic::Ordering::Relaxed));
             let this_ptr = this as *const Object as *mut Object;
 
             let parent: *mut Object = msg_send![this_ptr, parentWindow];
@@ -213,10 +211,7 @@ mod mac {
             method: *mut std::ffi::c_void,
             imp: *const std::ffi::c_void,
         ) -> *const std::ffi::c_void;
-        fn class_getInstanceMethod(
-            class: *const Class,
-            sel: Sel,
-        ) -> *mut std::ffi::c_void;
+        fn class_getInstanceMethod(class: *const Class, sel: Sel) -> *mut std::ffi::c_void;
     }
 
     pub(super) fn install_reveal_fade() {
@@ -226,10 +221,7 @@ mod mac {
             let Some(class) = Class::get("NSToolbarFullScreenWindow") else {
                 return;
             };
-            let method = class_getInstanceMethod(
-                class as *const Class,
-                sel!(setFrame:display:),
-            );
+            let method = class_getInstanceMethod(class as *const Class, sel!(setFrame:display:));
             if method.is_null() {
                 return;
             }

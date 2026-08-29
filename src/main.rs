@@ -1,4 +1,5 @@
 mod assets;
+mod caption;
 mod dock;
 mod fullscreen;
 mod panels;
