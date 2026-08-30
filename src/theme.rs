@@ -12,5 +12,6 @@ pub const OUTLINE: u32 = 0xffffff33;
 pub const DROP_TARGET: u32 = 0x5089f033;
 
 pub const RADIUS: f32 = 10.;
+pub const GAP: f32 = 1.;
 pub const FONT: &str = ".SystemUIFont";
 pub const FONT_SIZE: f32 = 12.;

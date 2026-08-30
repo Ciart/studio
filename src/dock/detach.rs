@@ -2,8 +2,8 @@ use std::{cell::Cell, rc::Rc, sync::Arc};
 
 use gpui::{
     AnyWindowHandle, App, Bounds, Context, Entity, IntoElement, ParentElement, Pixels, Point,
-    Render, SharedString, Styled, Subscription, TitlebarOptions, WeakEntity, Window, WindowBounds,
-    WindowOptions, div, point, prelude::*, px, rgb, rgba, size,
+    Render, SharedString, Size, Styled, Subscription, TitlebarOptions, WeakEntity, Window,
+    WindowBounds, WindowOptions, div, point, prelude::*, px, rgb, rgba, size,
 };
 use gpui_base::dock::{
     AnyDrag, DockArea, DockEvent, DockPlacement, DropTarget, InsertTarget, PanelView,
@@ -22,6 +22,8 @@ use crate::{
 };
 
 pub(crate) const SPARE_IDLE: std::time::Duration = std::time::Duration::from_secs(60);
+
+const WINDOW_SIZE: Size<Pixels> = size(px(420.), px(320.));
 
 #[cfg(target_os = "windows")]
 fn raw_hwnd(window: &Window) -> Option<windows::Win32::Foundation::HWND> {
@@ -87,8 +89,10 @@ pub(crate) fn set_masked(_: &Window, _: bool) {}
 
 #[cfg(target_os = "windows")]
 fn reveal(window: &Window, origin: Point<Pixels>) {
+    use windows::Win32::Foundation::{POINT, RECT};
+    use windows::Win32::Graphics::Gdi::ClientToScreen;
     use windows::Win32::UI::WindowsAndMessaging::{
-        HWND_TOP, SWP_NOSIZE, SWP_SHOWWINDOW, SetWindowPos,
+        GetWindowRect, HWND_TOP, SWP_NOSIZE, SWP_SHOWWINDOW, SetWindowPos,
     };
 
     let Some(hwnd) = raw_hwnd(window) else {
@@ -96,11 +100,22 @@ fn reveal(window: &Window, origin: Point<Pixels>) {
     };
     let scale = window.scale_factor();
     unsafe {
+        // The origin is in client space, the space `Window::bounds` reports and
+        // the space the drag math works in, but `SetWindowPos` places the window
+        // rect. The resize border sits between the two, so back it out.
+        let mut frame = RECT::default();
+        if GetWindowRect(hwnd, &mut frame).is_err() {
+            return;
+        }
+        let mut client = POINT::default();
+        if !ClientToScreen(hwnd, &mut client).as_bool() {
+            return;
+        }
         let _ = SetWindowPos(
             hwnd,
             Some(HWND_TOP),
-            (origin.x.as_f32() * scale).round() as i32,
-            (origin.y.as_f32() * scale).round() as i32,
+            (origin.x.as_f32() * scale).round() as i32 - (client.x - frame.left),
+            (origin.y.as_f32() * scale).round() as i32 - (client.y - frame.top),
             0,
             0,
             SWP_NOSIZE | SWP_SHOWWINDOW,
@@ -134,6 +149,7 @@ struct DetachedWindow {
     kind: AreaKind,
     drag: DragState,
     area: Entity<DockArea>,
+    skin: Rc<DockSkin>,
     fullscreen: FullscreenTitlebar,
     adopted: Rc<Cell<bool>>,
     _subscriptions: Vec<Subscription>,
@@ -158,13 +174,12 @@ impl DetachedWindow {
         state.next_window_id.set(id + 1);
         let area_id = SharedString::from(format!("detached-{id}"));
 
-        let window_size = size(px(420.), px(320.));
         let bounds = match origin.filter(|_| insert) {
             Some(cursor) => Bounds {
                 origin: state.window_origin(cursor),
-                size: window_size,
+                size: WINDOW_SIZE,
             },
-            None => Bounds::centered(None, window_size, cx),
+            None => Bounds::centered(None, WINDOW_SIZE, cx),
         };
 
         let adopted = Rc::new(Cell::new(insert));
@@ -186,15 +201,19 @@ impl DetachedWindow {
             |window, cx| {
                 let adopted = adopted.clone();
                 let view = cx.new(|cx| {
+                    let mut skin = None;
                     let area = cx.new(|cx| {
-                        let skin = Rc::new(DockSkin::new(
+                        let this = Rc::new(DockSkin::new(
                             kind,
                             window.window_handle(),
                             cx.weak_entity(),
                             state.clone(),
                         ));
-                        DockArea::new(area_id.clone(), Some(1), window, cx).with_renderer(skin)
+                        skin = Some(this.clone());
+                        DockArea::new(area_id.clone(), Some(1), window, cx).with_renderer(this)
                     });
+                    let skin: Rc<DockSkin> =
+                        skin.expect("DockSkin built in the DockArea constructor");
                     if insert {
                         area.update(cx, |area, cx| {
                             area.add_panel_view(
@@ -208,10 +227,12 @@ impl DetachedWindow {
                     }
                     let subscription = cx.subscribe_in(&area, window, Self::on_area_event);
                     let moved = cx.observe_window_bounds(window, Self::on_bounds_changed);
+                    skin.sync_layout(area.read(cx), cx);
                     DetachedWindow {
                         kind,
                         drag: state.clone(),
                         area,
+                        skin,
                         fullscreen: FullscreenTitlebar::default(),
                         adopted,
                         _subscriptions: vec![subscription, moved],
@@ -286,6 +307,7 @@ impl DetachedWindow {
     ) {
         match event {
             DockEvent::LayoutChanged => {
+                self.skin.sync_layout(area.read(cx), cx);
                 if self.adopted.get() && center_panels(area.read(cx)).is_empty() {
                     let handle = window.window_handle();
                     cx.defer(move |cx| {
@@ -385,7 +407,13 @@ pub(crate) fn prepare_spare(state: &DragState, panel: &Arc<dyn PanelView>, cx: &
         return;
     }
     if let Some(spare) = DetachedWindow::open(state, panel.clone(), zone, None, false, cx) {
-        let _ = spare.handle.update(cx, |_, window, _| conceal(window));
+        let _ = spare.handle.update(cx, |_, window, _| {
+            conceal(window);
+            // A window opened hidden keeps the size the platform picked at
+            // creation; the requested bounds only land once the platform shows
+            // it itself, and revealing keeps the size. So ask for it here.
+            window.resize(WINDOW_SIZE);
+        });
         state.spares.borrow_mut().push(spare);
     }
 }

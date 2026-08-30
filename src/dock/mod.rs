@@ -20,7 +20,7 @@ use gpui::{
 use gpui_base::dock::{DockArea, NodeId, Panel, PanelEvent, PanelId, PanelView};
 
 use crate::{
-    panels::PanelKind,
+    panels::{PanelContent, PanelKind},
     theme::{FONT, FONT_SIZE, HAIRLINE, PANEL, RADIUS, TEXT},
 };
 
@@ -46,6 +46,7 @@ pub struct DockPanel {
     pub(crate) kind: PanelKind,
     pub(crate) title: SharedString,
     pub(crate) zone: PanelZone,
+    content: PanelContent,
     focus_handle: FocusHandle,
 }
 
@@ -60,6 +61,7 @@ impl DockPanel {
             kind,
             title: title.into(),
             zone,
+            content: kind.content(cx),
             focus_handle: cx.focus_handle(),
         })
     }
@@ -81,7 +83,7 @@ impl Focusable for DockPanel {
 
 impl Render for DockPanel {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        self.kind.body()
+        self.content.body()
     }
 }
 
@@ -128,4 +130,7 @@ impl Render for HiddenPreview {
 
 pub(crate) const TAB_HEIGHT: f32 = 30.;
 pub(crate) const TITLEBAR_HEIGHT: f32 = 38.;
-pub(crate) const TRAFFIC_LIGHT_PAD: f32 = 78.;
+/// Lead a detached titlebar keeps clear for the macOS traffic lights. Every
+/// other platform parks its window controls on the right, so the strip there
+/// starts flush against the window edge.
+pub(crate) const TRAFFIC_LIGHT_PAD: f32 = if cfg!(target_os = "macos") { 78. } else { 0. };

@@ -83,7 +83,7 @@ impl Workspace {
         }
 
         let _drop_rules = cx.subscribe_in(&area, window, Self::on_dock_event);
-        skin.sync_empty_regions(area.read(cx), cx);
+        skin.sync_layout(area.read(cx), cx);
 
         Workspace {
             area,
@@ -101,7 +101,7 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) {
         match event {
-            DockEvent::LayoutChanged => self.skin.sync_empty_regions(area.read(cx), cx),
+            DockEvent::LayoutChanged => self.skin.sync_layout(area.read(cx), cx),
             DockEvent::DragDrop { item, target } => {
                 if self.skin.window_drag_active() {
                     return;

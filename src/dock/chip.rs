@@ -210,10 +210,7 @@ mod native {
             FillRect(dc, &bounds, fill);
             let _ = DeleteObject(fill.into());
 
-            let face: Vec<u16> = crate::theme::FONT
-                .encode_utf16()
-                .chain(std::iter::once(0))
-                .collect();
+            let face = font_face();
             let font = CreateFontW(
                 -((crate::theme::FONT_SIZE * content.scale).round() as i32),
                 0,
@@ -279,6 +276,39 @@ mod native {
             let _ = DeleteObject(bitmap.into());
             let _ = DeleteDC(dc);
             ReleaseDC(None, screen);
+        }
+    }
+
+    fn font_face() -> &'static [u16] {
+        static FACE: std::sync::LazyLock<Vec<u16>> = std::sync::LazyLock::new(|| {
+            // GDI resolves face names literally, so the `.SystemUIFont` alias gpui
+            // understands has to be turned into the family gpui itself picks.
+            let family = if crate::theme::FONT == ".SystemUIFont" {
+                system_ui_font_family()
+            } else {
+                crate::theme::FONT.to_owned()
+            };
+            family.encode_utf16().chain(std::iter::once(0)).collect()
+        });
+        &FACE
+    }
+
+    fn system_ui_font_family() -> String {
+        unsafe {
+            let mut info: LOGFONTW = std::mem::zeroed();
+            let resolved = SystemParametersInfoW(
+                SPI_GETICONTITLELOGFONT,
+                std::mem::size_of::<LOGFONTW>() as u32,
+                Some(&mut info as *mut _ as _),
+                SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
+            )
+            .is_ok();
+            if !resolved {
+                return "Segoe UI".to_owned();
+            }
+            String::from_utf16_lossy(&info.lfFaceName)
+                .trim_matches(char::from(0))
+                .to_owned()
         }
     }
 

@@ -5,10 +5,10 @@ use std::{
 };
 
 use gpui::{
-    AnyElement, AnyView, AnyWindowHandle, App, Axis, Bounds, DispatchPhase, Div, Entity,
-    InteractiveElement, IntoElement, MouseButton, MouseMoveEvent, MouseUpEvent, ParentElement,
-    Pixels, Point, Stateful, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
-    prelude::*, px, rgb, rgba,
+    AnyElement, AnyView, AnyWindowHandle, App, Axis, Bounds, DispatchPhase, Div, DragMoveEvent,
+    Entity, InteractiveElement, IntoElement, MouseButton, MouseMoveEvent, MouseUpEvent,
+    ParentElement, Pixels, Point, Stateful, StatefulInteractiveElement, Styled, WeakEntity, Window,
+    canvas, div, prelude::*, px, rgb, rgba,
 };
 use gpui_base::{
     ElementExt, Placement,
@@ -25,14 +25,17 @@ use super::{
     detach::{living_source, transfer_panel},
     drag::{AreaEntry, DragState, Grab, MergeSpot},
     util::{
-        EmptyDockCache, GroupBoundsCache, background_of, center_panels, drop_allowed, grab_within,
-        panel_title, placement_of, zone_of,
+        EmptyDockCache, GroupBoundsCache, background_of, center_panels, drop_allowed, gap_axes,
+        grab_within, panel_title, placement_of, zone_of,
     },
 };
 use crate::{
     caption,
     panels::{empty_hint, icon},
-    theme::{BACKDROP, CANVAS, DROP_TARGET, FONT, FONT_SIZE, HAIRLINE, MUTED, PANEL, RADIUS, TEXT},
+    theme::{
+        ACCENT, BACKDROP, CANVAS, DROP_TARGET, FONT, FONT_SIZE, GAP, HAIRLINE, MUTED, PANEL,
+        RADIUS, TEXT,
+    },
 };
 
 #[derive(Clone)]
@@ -46,7 +49,9 @@ pub struct DockSkin {
     empty_center_root: Rc<Cell<Option<NodeId>>>,
     group_bounds: GroupBoundsCache,
     empty_dock_bounds: EmptyDockCache,
+    gaps: Rc<RefCell<HashMap<NodeId, Axis>>>,
     tab_bounds: Rc<RefCell<HashMap<PanelId, Bounds<Pixels>>>>,
+    tab_drop: Rc<Cell<Option<(NodeId, usize)>>>,
     press: Rc<Cell<Point<Pixels>>>,
 }
 
@@ -76,7 +81,9 @@ impl DockSkin {
             empty_center_root: Rc::new(Cell::new(None)),
             group_bounds,
             empty_dock_bounds,
+            gaps: Rc::new(RefCell::new(HashMap::new())),
             tab_bounds: Rc::new(RefCell::new(HashMap::new())),
+            tab_drop: Rc::new(Cell::new(None)),
             press: Rc::new(Cell::new(Point::default())),
         }
     }
@@ -123,7 +130,13 @@ impl DockSkin {
         )
     }
 
-    pub fn sync_empty_regions(&self, area: &DockArea, cx: &App) {
+    pub fn sync_layout(&self, area: &DockArea, cx: &App) {
+        *self.gaps.borrow_mut() = gap_axes(area);
+
+        if self.kind.is_detached() {
+            return;
+        }
+
         *self.empty_docks.borrow_mut() = [
             DockPlacement::Left,
             DockPlacement::Right,
@@ -163,6 +176,86 @@ impl DockSkin {
                     _ => PanelZone::Dock,
                 }),
         }
+    }
+
+    fn gap_after(&self, node: NodeId) -> Option<Axis> {
+        self.gaps.borrow().get(&node).copied()
+    }
+
+    /// The tab slot a drop at `x` lands in: ahead of the first tab whose
+    /// midpoint the cursor has not passed, or after the last one.
+    fn insert_slot(&self, tabs: &[PanelId], x: Pixels) -> usize {
+        let bounds = self.tab_bounds.borrow();
+        tabs.iter()
+            .position(|panel| bounds.get(panel).is_some_and(|tab| x < tab.center().x))
+            .unwrap_or(tabs.len())
+    }
+
+    /// The slot a hovering drag would land in, for the group drawing its own
+    /// strip. Gated on a live drag so a slot left over from the last one does
+    /// not paint a caret.
+    fn drop_slot(&self, node: NodeId, cx: &App) -> Option<usize> {
+        cx.has_active_drag()
+            .then(|| self.tab_drop.get())
+            .flatten()
+            .filter(|(hovered, _)| *hovered == node)
+            .map(|(_, slot)| slot)
+    }
+
+    /// Land a tab-strip drop in a named slot. Within one group that is a
+    /// reorder, which the shared drop path declines to do because a
+    /// `DropTarget` cannot name a slot.
+    fn drop_in_slot(
+        &self,
+        group: &TabGroupContext,
+        item: &AnyDrag,
+        slot: usize,
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        let Some(drag) = item.value().downcast_ref::<PanelDrag>() else {
+            return;
+        };
+        let Some(area) = self.area.upgrade() else {
+            return;
+        };
+        let node = group.node();
+        let Some(region) = placement_of(area.read(cx), node) else {
+            return;
+        };
+        if !drop_allowed(self.kind, zone_of(&drag.view, cx), region) {
+            return;
+        }
+
+        let target = |ix| InsertTarget::Tabs {
+            node,
+            ix: Some(ix),
+            activate: true,
+        };
+
+        let same_group =
+            drag.source == Some(node) && living_source(drag).entity_id() == area.entity_id();
+        if !same_group {
+            transfer_panel(drag, &area, region, Some(target(slot)), window, cx);
+            return;
+        }
+
+        // The slot is read off the strip as it stands, but the move vacates
+        // the panel's own seat first, so every seat to its right shifts down.
+        let Some(from) = group
+            .panels()
+            .iter()
+            .position(|panel| panel.panel_id(cx) == drag.panel)
+        else {
+            return;
+        };
+        let slot = slot - usize::from(slot > from);
+        if slot == from || drag.landed.replace(true) {
+            return;
+        }
+        area.update(cx, |area, cx| {
+            area.move_panel(drag.panel, target(slot), window, cx)
+        });
     }
 
     fn render_resize_strip(&self, dock: &DockContext) -> impl IntoElement {
@@ -268,6 +361,29 @@ impl DockSkin {
     }
 }
 
+/// The seam a dragged tab would drop into, drawn on the edge of the tab that
+/// borders it.
+fn drop_caret(before: bool) -> impl IntoElement {
+    div()
+        .absolute()
+        .top(px(5.))
+        .bottom(px(5.))
+        .w(px(2.))
+        .rounded(px(1.))
+        .bg(rgb(ACCENT))
+        .map(|this| match before {
+            true => this.left_0(),
+            false => this.right_0(),
+        })
+}
+
+fn gutter<T: Styled>(element: T, axis: Axis) -> T {
+    match axis {
+        Axis::Horizontal => element.mr(px(GAP)),
+        Axis::Vertical => element.mb(px(GAP)),
+    }
+}
+
 impl DockAreaRenderer for DockSkin {
     fn frame(&self, _: &mut Window, _: &mut App) -> Stateful<Div> {
         let dragging = self.resizing.clone();
@@ -324,10 +440,10 @@ impl DockAreaRenderer for DockSkin {
     fn split_frame(&self, node: NodeId, _: Axis, _: &mut Window, _: &mut App) -> Stateful<Div> {
         div()
             .id(("workspace-dock-split", node.as_u64()))
-            .size_full()
             .flex_1()
             .min_h(px(0.))
             .overflow_hidden()
+            .when_some(self.gap_after(node), gutter)
             .when(self.empty_center_root.get() == Some(node), |this| {
                 this.relative().child(
                     div()
@@ -361,9 +477,9 @@ impl DockAreaRenderer for DockSkin {
             .relative()
             .overflow_hidden()
             .map(|this| match placement {
-                DockPlacement::Bottom => this.w_full().h(dock.size()).flex_col(),
-                DockPlacement::Right => this.h_full().w(dock.size()).flex_row().ml(px(1.)),
-                _ => this.h_full().w(dock.size()).flex_row().mr(px(1.)),
+                DockPlacement::Bottom => this.w_full().h(dock.size()).flex_col().mt(px(GAP)),
+                DockPlacement::Right => this.h_full().w(dock.size()).flex_row().ml(px(GAP)),
+                _ => this.h_full().w(dock.size()).flex_row().mr(px(GAP)),
             })
             .map(|this| match empty {
                 false => this.child(content),
@@ -384,7 +500,8 @@ impl DockAreaRenderer for DockSkin {
 
 impl TabGroupRenderer for DockSkin {
     fn frame(&self, group: &TabGroupContext, _: &mut Window, cx: &mut App) -> Stateful<Div> {
-        let zone = self.group_zone(group.node(), cx);
+        let node = group.node();
+        let zone = self.group_zone(node, cx);
         let in_dock = zone == PanelZone::Dock;
         self.drag.hovered_group_accepts.set(
             !cx.has_active_drag()
@@ -392,14 +509,14 @@ impl TabGroupRenderer for DockSkin {
         );
         div()
             .id("tab-group")
-            .size_full()
+            .flex_1()
             .flex()
             .flex_col()
             .min_h(px(0.))
             .overflow_hidden()
             .rounded(px(RADIUS))
             .bg(rgb(if in_dock { PANEL } else { BACKDROP }))
-            .when(!self.kind.is_detached(), |this| this.mb(px(1.)))
+            .when_some(self.gap_after(node), gutter)
     }
 
     fn content_frame(
@@ -485,11 +602,21 @@ impl TabGroupRenderer for DockSkin {
                 .unwrap_or(false);
 
         let in_titlebar = self.kind.is_detached();
+        // With no traffic lights to clear, the strip sits flush and a dock tab
+        // has to carry the lead the strip would otherwise hold.
+        let flush_titlebar = in_titlebar && TRAFFIC_LIGHT_PAD == 0.;
         let merging = self.merge_spot()
             == Some(MergeSpot::Group {
                 node: group.node(),
                 placement: None,
             });
+        let tabs: Vec<PanelId> = group
+            .panels()
+            .iter()
+            .map(|panel| panel.panel_id(cx))
+            .collect();
+        let last = tabs.len().saturating_sub(1);
+        let slot = self.drop_slot(group.node(), cx);
 
         h_flex()
             .h(px(if in_titlebar {
@@ -502,10 +629,10 @@ impl TabGroupRenderer for DockSkin {
             .overflow_hidden()
             .when(in_dock, |this| {
                 this.bg(rgb(PANEL))
-                    .pr(px(9.))
                     .justify_between()
                     .when(!in_titlebar, |this| {
-                        this.rounded_t(px(RADIUS))
+                        this.pr(px(9.))
+                            .rounded_t(px(RADIUS))
                             .border_t_1()
                             .border_color(rgba(HAIRLINE))
                     })
@@ -532,14 +659,40 @@ impl TabGroupRenderer for DockSkin {
                     false => style,
                 }
             })
+            .on_drag_move::<AnyDrag>({
+                let skin = self.clone();
+                let node = group.node();
+                let tabs = tabs.clone();
+                move |event: &DragMoveEvent<AnyDrag>, window, _| {
+                    let over = event.bounds.contains(&event.event.position)
+                        && !skin.drag.window_drag_active()
+                        && skin.drag.drag_accepted(group_zone);
+                    let next =
+                        over.then(|| (node, skin.insert_slot(&tabs, event.event.position.x)));
+                    // A strip the cursor left clears only its own slot; the
+                    // strip it moved onto owns the state now.
+                    let previous = skin.tab_drop.get();
+                    if next == previous || (!over && previous.is_some_and(|(at, _)| at != node)) {
+                        return;
+                    }
+                    skin.tab_drop.set(next);
+                    window.refresh();
+                }
+            })
             .on_drop({
                 let group = group.clone();
                 let skin = self.clone();
+                let tabs = tabs.clone();
                 move |item: &AnyDrag, window, cx| {
                     if skin.drag.window_drag_active() {
                         return;
                     }
-                    group.drop_item(item.clone(), None, window, cx)
+                    let slot = skin
+                        .tab_drop
+                        .take()
+                        .filter(|(at, _)| *at == group.node())
+                        .map_or(tabs.len(), |(_, slot)| slot);
+                    skin.drop_in_slot(&group, item, slot, window, cx);
                 }
             })
             .child(h_flex().h_full().items_center().children(
@@ -559,8 +712,14 @@ impl TabGroupRenderer for DockSkin {
                         ),
                         landed: Cell::new(false),
                     });
+                    let caret = match slot {
+                        Some(slot) if slot == ix => Some(true),
+                        Some(slot) if slot > last && ix == last => Some(false),
+                        _ => None,
+                    };
                     div()
                         .id(("tab", ix))
+                        .relative()
                         .on_mouse_down(MouseButton::Left, {
                             let press = self.press.clone();
                             let drag_state = self.drag.clone();
@@ -595,7 +754,9 @@ impl TabGroupRenderer for DockSkin {
                                 .flex()
                                 .items_center()
                                 .map(|this| match in_dock {
-                                    true => this.pr(px(12.)),
+                                    true => this
+                                        .when(flush_titlebar, |this| this.pl(px(12.)))
+                                        .pr(px(12.)),
                                     false => this.pl(px(12.)).pr(px(4.)),
                                 })
                                 .child(title.clone())
@@ -603,6 +764,7 @@ impl TabGroupRenderer for DockSkin {
                                     this.child(icon("icons/close_small.svg", 20., 20., TEXT))
                                 }),
                         )
+                        .when_some(caret, |this, before| this.child(drop_caret(before)))
                         .on_click({
                             let group = group.clone();
                             move |_, window, cx| group.select_tab(ix, window, cx)
@@ -649,10 +811,18 @@ impl TabGroupRenderer for DockSkin {
                         }
                     },
                 ))
-                .child(caption::caption_buttons(window))
             })
             .when(in_dock, |this| {
-                this.child(icon("icons/more_horiz.svg", 20., 8., MUTED))
+                this.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .when(in_titlebar, |this| this.px(px(9.)))
+                        .child(icon("icons/more_horiz.svg", 20., 8., MUTED)),
+                )
+            })
+            .when(in_titlebar, |this| {
+                this.child(caption::caption_buttons(window))
             })
             .into_any_element()
     }

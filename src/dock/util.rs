@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc};
 
-use gpui::{App, Bounds, Entity, Pixels, Point, SharedString, point};
+use gpui::{App, Axis, Bounds, Entity, Pixels, Point, SharedString, point};
 use gpui_base::{
     Placement,
     dock::{DockArea, DockPlacement, NodeId, PaneRef, PanelId, PanelView},
@@ -48,6 +48,29 @@ pub(crate) fn group_len(area: &DockArea, node: NodeId) -> Option<usize> {
         PaneRef::Tabs { panels, .. } => Some(panels.len()),
         _ => None,
     }
+}
+
+pub(crate) fn gap_axes(area: &DockArea) -> HashMap<NodeId, Axis> {
+    let mut gaps = HashMap::new();
+    for placement in [
+        DockPlacement::Center,
+        DockPlacement::Left,
+        DockPlacement::Right,
+        DockPlacement::Bottom,
+    ] {
+        let Some(tree) = area.layout(placement) else {
+            continue;
+        };
+        tree.root().walk(&mut |node| {
+            let PaneRef::Split { axis, children, .. } = node.kind() else {
+                return;
+            };
+            for child in children.iter().rev().skip(1) {
+                gaps.insert(child.id(), axis);
+            }
+        });
+    }
+    gaps
 }
 
 pub(crate) fn placement_of(area: &DockArea, node: NodeId) -> Option<DockPlacement> {

@@ -2,12 +2,17 @@
 name = "studio"
 version = "0.1.0"
 edition = "2024"
+description = "Ciart Studio"
+authors = ["Pdom <peudomi@ciart.com>"]
 
 [dependencies]
 gpui = { git = "https://github.com/peudomi/gpui.git" }
 gpui-base = { git = "https://github.com/peudomi/gpui-component" }
 gpui_platform = { git = "https://github.com/peudomi/gpui.git" }
 raw-window-handle = "0.6"
+
+[target.'cfg(target_os = "windows")'.build-dependencies]
+embed-resource = "3"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
 version = "0.61"
